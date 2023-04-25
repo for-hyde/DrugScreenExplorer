@@ -61,7 +61,7 @@ normalizePlate <- function(screenData, method = "negatives", discardLayer = 0L,
   }
 
   #- normOnePlate, function to normalize the values with two methods: "negatives" and "NPI".
-
+  #- the name may be misleading
   normOnePlate <- function(onePlate) {
 
     negMed <- median(dplyr::filter(onePlate, wellType == "neg", !colID %in% disCol, !rowID %in%
