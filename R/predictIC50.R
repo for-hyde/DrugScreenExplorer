@@ -8,7 +8,7 @@
 #' @param level not used, mainly for geom_smooth purpose
 #' @param interval not used, mainly for geom_smooth purpose
 #' @param ... further arguments to be passed to ggplot when using geom_smooth().
-#' @export
+#' @export predict.fitIC50
 #' @return a vector of predicted response based on a fitted model and input concentration values.
 #' @examples
 #' # create an example dose-response table

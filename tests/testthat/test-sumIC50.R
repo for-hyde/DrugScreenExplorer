@@ -1,27 +1,29 @@
 
 #-------------------------------------------------------------------------------
-#- fitIC50 test
+#- sumIC50 test, including predict.fitIC50 and calcAUC
 #-------------------------------------------------------------------------------
 
-test_that("Test the output of fitIC50 to that directly using dr4pl", {
+
+test_that("Test sumIC50 including internal functions: predict.fitIC50 and calcAUC)",{
 
   doseTab <- data.frame(viability = c(1.0, 0.95, 0.5, 0.2, 0.1),
                         concentration = c(0.001, 0.01, 0.1, 1, 10))
 
-  expectedResult <- dr4pl(viability ~ concentration, data = doseTab)
-  testResult <- fitIC50(viability ~ concentration, data = doseTab)$parm_fit
+  IC50 <- sumIC50(viability ~ concentration, data = doseTab,
+                  minConc = 0, maxConc = 15, n = 100)
 
-  expect_equal(expectedResult$parameters, testResult$parameters)
-
-})
+  expect_equal(round(as.numeric(IC50["AUC"]), 3), 0.191)
 
 
-test_that("Test argument: logDose ", {
-
-  doseTab <- data.frame(viability = c(1.0, 0.95, 0.5, 0.2, 0.1),
+  #- expect warning
+  doseTab <- data.frame(viability = c(1, 1, 1, 1, 1),
                         concentration = c(0.001, 0.01, 0.1, 1, 10))
 
-  expect_message(fitIC50(viability ~ concentration, data = doseTab, logDose = 2),
-                 "Concentration is transformed back with the given base:2")
+  expect_warning(sumIC50(viability ~ concentration, data = doseTab,
+                         minConc = 0, maxConc = 15, n = 100))
 
 })
+
+
+#-------------------------------------------------------------------------------
+

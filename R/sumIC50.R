@@ -3,8 +3,8 @@
 #' This function will fit a 4-parameter log-logistic model using dr4pl package based on the input dose-response table and return the model parameters as well as integrated area under the fitted sigmoid curve.
 #' @param formula formula for the curve fitting.
 #' @param data a data frame containing the raw concentration and the viability value.
-#' @param minConc lower bound of concentrations for the integration of area under curve, default value is 0.
-#' @param maxConc upper bound of concentrations for the integration of area under curve, default value is 15.
+#' @param minConc lower bound of concentrations for the integration of area under curve.
+#' @param maxConc upper bound of concentrations for the integration of area under curve.
 #' @param n number of bins for integration.
 #' @param ... further arguments to be passed to dr4pl function.
 #' @export
@@ -26,7 +26,7 @@
 #' # get the parameters
 #' sumIC50(viability ~ concentration, data = doseTab)
 
-sumIC50 <- function(formula, data = NULL, minConc = 0, maxConc = 15, n = 100, ...) {
+sumIC50 <- function(formula, data = NULL, minConc, maxConc, n = 100, ...) {
 
   res <- tryCatch({
     # fit sigmoid model
@@ -34,12 +34,13 @@ sumIC50 <- function(formula, data = NULL, minConc = 0, maxConc = 15, n = 100, ..
 
     # integrate AUC
     concSeq <- data.frame(conc = seq(minConc, maxConc, length.out = n))
-    valueConc <- data.frame(viab = predict.fitIC50(mm, concSeq), conc = concSeq[, 1])
+    valueConc <- data.frame(viab = predict.fitIC50(mm, concSeq),
+                            conc = concSeq[, 1])
     aucVal <- calcAUC(valueConc$viab, valueConc$conc)
 
-    res <- data.frame(t(mm$parm_fit$parameters))
-    colnames(res) <- c("UpperLimit", "IC50", "Slope", "LowerLimit")
-    res$AUC <- aucVal
+    res <- setNames(mm$parm_fit$parameters,
+                    attr(mm$parm_fit$parameters, "param_info"))
+    res <- c(res, AUC = aucVal)
     res
   }, error = function(err) {
     warning("Curve fitting failed, NA values generated. ")
@@ -48,3 +49,18 @@ sumIC50 <- function(formula, data = NULL, minConc = 0, maxConc = 15, n = 100, ..
 
   return(res)
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

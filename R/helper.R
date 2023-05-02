@@ -214,11 +214,10 @@ calcAUC <- function(value, conc, viabCut = NULL) {
 
     if (nrow(valueConc) %in% c(0, 1)) {
         return(mean(valueConc$viab, na.rm = TRUE))
-
     } else {
         areaTotal <- 0
         for (i in seq(nrow(valueConc) - 1)) {
-            areaEach <- (valueConc$viab[i] + valueConc$viab[i + 1]) * log(valueConc$conc[i + 1]/valueConc$conc[i]) * 0.5
+            areaEach  <- (valueConc$viab[i] + valueConc$viab[i + 1]) * log(valueConc$conc[i + 1]/valueConc$conc[i]) * 0.5
             areaTotal <- areaTotal + areaEach
         }
         aucRatio <- areaTotal/log(valueConc[nrow(valueConc), ]$conc/valueConc[1, ]$conc)
@@ -228,6 +227,7 @@ calcAUC <- function(value, conc, viabCut = NULL) {
 
 # Function to correct edge effect using a specialized linear model, to fix issue of over correcting of bliss model. This
 # is only an experimental funciton.
+
 corEdgeLinear <- function(x, m) {
 
     inTab <- data.frame(normVal = x, edgeFactor = m)
