@@ -27,6 +27,7 @@
 #' sumIC50(viability ~ concentration, data = doseTab)
 
 sumIC50 <- function(formula, data = NULL, minConc = 0, maxConc = 15, n = 100, ...) {
+
   res <- tryCatch({
     # fit sigmoid model
     mm <- fitIC50(formula, data, ...)

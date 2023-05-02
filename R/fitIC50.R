@@ -2,13 +2,14 @@
 #'
 #' Use the dr4pl package to perform IC50 curve fitting. Can be directly used for geom_smooth() in ggplot2.
 #'
-#' @param formula formula for the curve fitting.
+#' @param formula formula for the curve fitting in the form of 'response ~ concentration'.
 #' @param data a data frame that contains the  concentration values and the normalized viability values or percent inhibition values.
 #' @param weights not used, mainly for geom_smooth() purpose
 #' @param logDose a numeric value specifying the base of log transformation for concentration,
-#' if the concentration is log transformed. The default value is NULL (not log transformed).
-#' @param ... further arguments to be passed to dr4pl function
-#' @export
+#' if the concentration is log transformed. Concentrations will be transformed back with the given base.
+#' The default value is NULL (not log transformed).
+#' @param ... further arguments to be passed to \textit{dr4pl} function
+#' @export fitIC50
 #' @import dr4pl
 #' @return fitIC50 returns an object of class 'fitIC50', which is a list containing the following components:
 #' \item{model}{the input dose-response table}
@@ -24,7 +25,10 @@
 #' # fit a four-parameter logistic model using dr4pl package
 #' fitIC50(viability ~ concentration, data = doseTab)
 #'
+#'
+
 fitIC50 <- function(formula, data = NULL, weights = NULL, logDose = NULL, ...) {
+
   if (!is.null(data)) {
     modelFrame <- model.frame(formula, data)
   } else {
@@ -33,11 +37,21 @@ fitIC50 <- function(formula, data = NULL, weights = NULL, logDose = NULL, ...) {
 
   if (!is.null(logDose)) {
     modelFrame[, 2] <- logDose^modelFrame[, 2]
+    message("Concentration is transformed back with the given base:", logDose)
   }
 
   parm_fit <- dr4pl(modelFrame[, 2], modelFrame[, 1], ...)
-  newModel <- list(model = modelFrame, formula = formula, parm_fit = parm_fit, logDose = logDose)
+  newModel <- list(formula = formula, parm_fit = parm_fit, logDose = logDose,
+                   model = modelFrame)
 
   class(newModel) <- "fitIC50"
   return(newModel)
 }
+
+
+
+
+
+
+
+

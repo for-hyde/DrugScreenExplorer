@@ -20,10 +20,10 @@
 #' (if the 'name' column is present in well annotation), which specifies the positive control wells
 #' @param normalization a logical value to indicate whether to calculate percent inhibition
 #' based on control wells on the plate. Default is FALSE.
-#' @param method a character string, either 'negatives' or 'both',
-#' specifying the method for calculating percent inhibition values. If 'negatives' is used,
+#' @param method a character string, either 'negatives' or 'NPI',
+#' specifying the method for calculating percent inhibition values. If 'negatives',
 #' each measurement on the plate will be divided by the median of the values of negative control wells on the same plate.
-#' If 'both' is used, a 'normalized percent inhibition (NPI)' is applied in a per-plate basis.
+#' If 'NPI', a 'normalized percent inhibition (NPI)' is applied in a per-plate basis.
 #' For an inhibition assay, this method divides the difference between each measurement on a plate and
 #' the median measurement of the positive controls on that plate by the difference between the median measurement of
 #' negative controls and positive controls on that well. The default value is 'negatives'.
@@ -74,6 +74,11 @@ readScreen <- function(rawDir,
                        commaAsDecimal = FALSE,
                        allowNA = FALSE,
                        bySample = FALSE) {
+
+
+  #- argument matching
+  method = match.arg(method, c("negatives", "NPI"))
+  stopifnot(is.numeric(discardLayer))
 
   # read sample annotation files
   if (commaAsDecimal) {

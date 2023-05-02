@@ -55,7 +55,6 @@ readPlate <- function(plateFile, rowRange = c(3, 18), colRange = 2, sep = "[;\t]
 }
 
 
-
 ## Function to make pdf for a list of ggplot objects
 makepdf <- function(x, name, ncol = 3, nrow = 2, width = 20, height = 12) {
 
@@ -196,7 +195,8 @@ fitOneSigmoid <- function(plateData, useNeg, useLowConcentrations, lowConcTab) {
 }
 
 
-# function to calculate AUC using linear-log trapezoidal method
+# Function to calculate AUC using linear-log trapezoidal method
+
 calcAUC <- function(value, conc, viabCut = NULL) {
 
     valueConc <- data.frame(viab = value, conc = conc) %>%
