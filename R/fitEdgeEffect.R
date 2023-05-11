@@ -25,7 +25,9 @@
 #' data('screenData_normalized')
 #' screenData_fitted <- fitEdgeEffect(screenData_normalized, method = 'loess', useNeg = TRUE)
 
-fitEdgeEffect <- function(screenData, method = "loess", useNeg = TRUE, useLowConcentrations = 0, span = 1, exclude = c()) {
+fitEdgeEffect <- function(screenData, method = "loess", useNeg = TRUE,
+                          useLowConcentrations = 0, span = 1, exclude = c()) {
+
   # a function to calculate position correction factor for each plate
 
   # check if normalized values is present
@@ -44,8 +46,9 @@ fitEdgeEffect <- function(screenData, method = "loess", useNeg = TRUE, useLowCon
       stop("No information of name, concentration and well type found")
     } else {
       nLowest <- function(x, n) {
-        sort(unique(x))[seq(1, n)]
+        na.omit(sort(unique(x))[seq_len(n)]) #- remove possible NA when N > # of concentrations
       }
+
       lowConcTab <- dplyr::filter(screenData, wellType == "sample") %>%
         group_by(name) %>%
         do(tibble(concentration = nLowest(.$concentration, useLowConcentrations))) %>%
@@ -56,16 +59,20 @@ fitEdgeEffect <- function(screenData, method = "loess", useNeg = TRUE, useLowCon
   # change rowID and colID to numeric values for fitting
   nRow <- length(unique(screenData$rowID))
   row2num <- structure(seq(nRow), names = genRowIDs(nRow))
-  screenSub <- dplyr::mutate(screenData, numRowID = row2num[rowID], numColID = as.integer(colID)) %>%
+  screenSub <- dplyr::mutate(screenData,
+                             numRowID = row2num[rowID],
+                             numColID = as.integer(colID)) %>%
     dplyr::filter(!fileName %in% exclude)
 
   if (method == "loess") {
+
     screenSub <- group_by(screenSub, fileName) %>%
       do(fitOneLoess(., useNeg, useLowConcentrations, lowConcTab, span)) %>%
       ungroup() %>%
       dplyr::select(fileName, rowID, colID, edgeFactor)
 
   } else if (method == "sigmoid") {
+
     screenSub <- group_by(screenSub, fileName) %>%
       do(fitOneSigmoid(., useNeg, useLowConcentrations, lowConcTab)) %>%
       ungroup() %>%
@@ -78,3 +85,21 @@ fitEdgeEffect <- function(screenData, method = "loess", useNeg = TRUE, useLowCon
   return(screenData)
 
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

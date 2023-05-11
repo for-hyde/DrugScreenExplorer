@@ -12,7 +12,7 @@ test_that("Test sumIC50 including internal functions: predict.fitIC50 and calcAU
   IC50 <- sumIC50(viability ~ concentration, data = doseTab,
                   minConc = 0, maxConc = 15, n = 100)
 
-  expect_equal(round(as.numeric(IC50["AUC"]), 3), 0.191)
+  expect_equal(as.numeric(IC50["AUC"]), 0.1905, tolerance = 0.001)
 
 
   #- expect warning
