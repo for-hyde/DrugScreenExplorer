@@ -298,8 +298,9 @@ detectClass <- function(x) {
 }
 
 
-#plot viability heatmap for each plates
+#- plot viability heatmap for each plates
 plotViability <- function(matPlate, plateList, limits, ifCorrected) {
+
   # plot normalized ATP count (viability))
   if (!"normVal" %in% colnames(matPlate))
     stop("No relative viability values found, please normalize the plate first")
@@ -308,8 +309,13 @@ plotViability <- function(matPlate, plateList, limits, ifCorrected) {
     limits <- c(0, 2)
   }
 
-  matPlate <- dplyr::mutate(matPlate, normVal = ifelse(normVal < limits[1], limits[1],
-                                                       ifelse(normVal > limits[2], limits[2], normVal)))
+  #- matPlate should contains normVal
+  if (!"normVal" %in% colnames(matPlate))
+    stop("Plate should be normalized")
+
+  matPlate <- dplyr::mutate(matPlate,
+                            normVal = ifelse(normVal < limits[1], limits[1],
+                                             ifelse(normVal > limits[2], limits[2], normVal)))
 
   if (ifCorrected) {
     if (!"normVal.cor" %in% colnames(matPlate)) {
@@ -321,11 +327,15 @@ plotViability <- function(matPlate, plateList, limits, ifCorrected) {
 
   plotList <- lapply(plateList, function(plateName) {
     p <- dplyr::filter(matPlate, fileName == plateName) %>%
-      ggplot(aes(x = colID, y = rowID, fill = normVal)) + geom_tile(color = "grey80") +
-      labs(x = "", y = "", fill = "viability", title = plateName) + theme_void() +
-      theme(axis.text = element_text(size = 6), axis.ticks = element_blank(),
-            plot.title = element_text(hjust = 0.5), plot.margin = margin(5, 5,
-                                                                         5, 5))
+      ggplot(aes(x = colID, y = rowID, fill = normVal)) +
+      geom_tile(color = "grey80") +
+      labs(x = "", y = "", fill = "viability", title = plateName) +
+      theme_void() +
+      theme(axis.text  = element_text(size = 6),
+            axis.ticks = element_blank(),
+            plot.title = element_text(hjust = 0.5),
+            plot.margin = margin(5, 5, 5, 5))
+
     if (!is.null(limits)) {
       p <- p + scale_fill_gradient2(limits = limits, high = "red", low = "blue",
                                     mid = "white", midpoint = 1)
@@ -339,6 +349,7 @@ plotViability <- function(matPlate, plateList, limits, ifCorrected) {
 
 #plot zscore heatmap for each plate
 plotZscore <- function(matPlate, plateList, limits) {
+
   # calculate per-plate z-score
   calcZ <- function(x) dplyr::mutate(x, zscore = (value - mean(value))/sd(value))
   matPlate <- group_by(matPlate, fileName) %>%
@@ -350,16 +361,21 @@ plotZscore <- function(matPlate, plateList, limits) {
   }
 
   # censoring value based on limit
-  matPlate <- dplyr::mutate(matPlate, zscore = ifelse(zscore < limits[1], limits[1],
-                                                      ifelse(zscore > limits[2], limits[2], zscore)))
+  matPlate <- dplyr::mutate(matPlate,
+                            zscore = ifelse(zscore < limits[1], limits[1],
+                                            ifelse(zscore > limits[2], limits[2], zscore)))
 
   plotList <- lapply(plateList, function(plateName) {
     p <- dplyr::filter(matPlate, fileName == plateName) %>%
-      ggplot(aes(x = colID, y = rowID, fill = zscore)) + geom_tile(color = "grey80") +
-      labs(x = "", y = "", fill = "Z score", title = plateName) + theme_void() +
-      theme(axis.text = element_text(size = 6), axis.ticks = element_blank(),
-            plot.title = element_text(hjust = 0.5), plot.margin = margin(5, 5,
-                                                                         5, 5))
+      ggplot(aes(x = colID, y = rowID, fill = zscore)) +
+      geom_tile(color = "grey80") +
+      labs(x = "", y = "", fill = "Z score", title = plateName) +
+      theme_void() +
+      theme(axis.text = element_text(size = 6),
+            axis.ticks = element_blank(),
+            plot.title = element_text(hjust = 0.5),
+            plot.margin = margin(5, 5, 5, 5))
+
     if (!is.null(limits)) {
       p <- p + scale_fill_gradient2(limits = limits, high = "red", low = "blue",
                                     mid = "white", midpoint = 0)
@@ -372,26 +388,34 @@ plotZscore <- function(matPlate, plateList, limits) {
   return(plotList)
 }
 
+
 #plot edge effect for each plate
 plotEdgeEffect <- function(matPlate, plateList, limits) {
+
   # only plot estiamted edge effect
   if (!"edgeFactor" %in% colnames(matPlate))
-    stop("No edge effect information found, please fit edge effect first")
+    stop("No edge effect information found: please fit edge effect first")
 
   if (is.null(limits)) {
     limits <- c(0, 2)
   }
 
-  matPlate <- dplyr::mutate(matPlate, normVal = ifelse(normVal < limits[1], limits[1],
-                                                       ifelse(normVal > limits[2], limits[2], normVal)))
+  matPlate <- dplyr::mutate(matPlate,
+                            normVal = ifelse(normVal < limits[1], limits[1],
+                                             ifelse(normVal > limits[2], limits[2], normVal)))
 
   plotList <- lapply(plateList, function(plateName) {
+
     p <- dplyr::filter(matPlate, fileName == plateName) %>%
-      ggplot(aes(x = colID, y = rowID, fill = edgeFactor)) + geom_tile(color = "grey80") +
-      labs(x = "", y = "", fill = "viability", title = plateName) + theme_void() +
-      theme(axis.text = element_text(size = 6), axis.ticks = element_blank(),
-            plot.title = element_text(hjust = 0.5), plot.margin = margin(5, 5,
-                                                                         5, 5))
+      ggplot(aes(x = colID, y = rowID, fill = edgeFactor)) +
+      geom_tile(color = "grey80") +
+      labs(x = "", y = "", fill = "viability", title = plateName) +
+      theme_void() +
+      theme(axis.text  = element_text(size = 6),
+            axis.ticks = element_blank(),
+            plot.title = element_text(hjust = 0.5),
+            plot.margin = margin(5, 5, 5, 5))
+
     if (!is.null(limits)) {
       p <- p + scale_fill_gradient2(limits = limits, high = "red", low = "blue",
                                     mid = "white", midpoint = 1)

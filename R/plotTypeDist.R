@@ -28,17 +28,17 @@ plotTypeDist <- function(screenData, plotPlate = "all", ifLog10 = FALSE, pdfName
 
   if (plotPlate == "all") {
     plateList <- unique(screenData$fileName)
-
   } else {
     plateList <- intersect(unique(screenData$fileName), plotPlate)
-
   }
   if (length(plateList) == 0)
     stop("No plate found")
 
   pList <- lapply(plateList, function(plateName) {
+
     plotTab <- dplyr::filter(screenData, fileName == plateName) %>%
       dplyr::mutate(wellType = factor(wellType))
+
     if (length(unique(plotTab$wellType)) <= 1)
       stop("The well types on plate is less than 1, nothing to plot")
 
@@ -48,16 +48,17 @@ plotTypeDist <- function(screenData, plotPlate = "all", ifLog10 = FALSE, pdfName
 
     } else {
       yLabText <- ylab("raw counts")
-
     }
 
     ggplot(plotTab, aes(x = wellType, y = value, fill = wellType)) + geom_point() +
       geom_boxplot(alpha = 0.5) + theme_bw() +
-      theme(legend.position = "none",plot.title = element_text(hjust = 0.5, face = "bold", size = 10),
+      theme(legend.position = "none",
+            plot.title  = element_text(hjust = 0.5, face = "bold", size = 10),
             axis.text.x = element_text(face = "bold",size = 10),
             axis.text.y = element_text(size = 10), plot.margin = margin(5,5, 5, 5)) +
       yLabText + xlab("well types") + ggtitle(plateName)
   })
+
   names(pList) <- plateList
 
   if (is.null(pdfName)) {
@@ -68,3 +69,6 @@ plotTypeDist <- function(screenData, plotPlate = "all", ifLog10 = FALSE, pdfName
 
   }
 }
+
+
+

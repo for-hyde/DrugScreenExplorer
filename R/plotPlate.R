@@ -25,7 +25,7 @@
 #' # load processed data
 #' data('screenData_normalized')
 #'
-#' # plot the cell viability heatmap on all plates
+#' plot the cell viability heatmap on all plates
 #' plotPlate(screenData_normalized, plotPlate = 'all', plotType = 'viability')
 #' # Please see the vignette for more information.
 
@@ -33,33 +33,42 @@ plotPlate <- function(screenData, plotPlate = "all", plotType = "layout", ifCorr
                       limits = NULL, pdfName = NULL, ncol = 2, nrow = 3, width = 16, height = 16) {
 
   # Get a list of plates for plotting, either all plates in the drug screen
-  # data or a user-specified list
+  # Data or a user-specified list
+
   if (all(plotPlate == "all")) {
     plateList <- unique(screenData$fileName)
   } else {
-    plateList <- intersect(unique(screenData$fileName), plotPlate)
+    plateList    <- intersect(unique(screenData$fileName), plotPlate)
+    invalidPlate <- setdiff(plotPlate, plateList)
+
+    if (length(invalidPlate) > 0 && length(invalidPlate) < length(plotPlate))
+      warning(paste0("The following plates cannot be found: ",  paste0(invalidPlate, collapse = ",")))
   }
+
   if (length(plateList) == 0)
     stop("No plate found")
 
-  # generate table with correct odering of column and rows for plotting.
+  # generate table with correct ordering of column and rows for plotting.
   nCol <- length(unique(screenData$colID))
   nRow <- length(unique(screenData$rowID))
   rowSeq <- genRowIDs(nRow)
   colSeq <- genColIDs(nCol)
 
   matPlate <- screenData %>%
-    dplyr::mutate(rowID = factor(rowID, levels = rev(rowSeq))) %>%
-    dplyr::mutate(colID = factor(colID, levels = colSeq))
+    dplyr::mutate(rowID = factor(rowID, levels = rev(rowSeq)),
+                  colID = factor(colID, levels = colSeq))
 
   if (plotType == "layout") {
     # only plot the layout on the plate, based on the wellType annotation
     plotList <- lapply(plateList, function(plateName) {
       p <- dplyr::filter(matPlate, fileName == plateName) %>%
         ggplot(aes(x = colID, y = rowID, fill = wellType)) + geom_tile(color = "grey80") +
-        xlab("") + ylab("") + theme_void() + ggtitle(plateName) + theme(axis.text = element_text(size = 6),
-                                                                        axis.ticks = element_blank(), plot.title = element_text(hjust = 0.5),
-                                                                        plot.margin = margin(5, 5, 5, 5))
+        xlab("") + ylab("") +
+        theme_void() +
+        ggtitle(plateName) +
+        theme(axis.text = element_text(size = 6),
+              axis.ticks = element_blank(), plot.title = element_text(hjust = 0.5),
+              plot.margin = margin(5, 5, 5, 5))
     })
 
   } else if (plotType == "viability") {

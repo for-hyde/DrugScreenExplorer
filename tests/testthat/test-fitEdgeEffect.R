@@ -1,5 +1,5 @@
 load("testData/expectedOutput/screenData.RData")
-load("testData/expectedOutput/edgeFactor.RData")
+# load("testData/expectedOutput/edgeFactor.RData")
 
 test_that("`useNeg = F` should be identical to `useNeg = TRUE & useLowConcentrations = 100`", {
 

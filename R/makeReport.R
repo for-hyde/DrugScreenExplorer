@@ -1,3 +1,4 @@
+
 #' Generate a quality report of the screen data
 #'
 #' This function generates a customized Rmarkdown based html report for priliminary quality assurance.
@@ -19,6 +20,7 @@
 #'            title = 'Report example',
 #'            author = 'Author Name', ifPlatePlot = FALSE)
 #'
+
 makeReport <- function(screenData, showCode = FALSE, title = "Report for my drug screening project",
                        author = "Author Name", ifPlatePlot = FALSE) {
 

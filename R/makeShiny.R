@@ -18,6 +18,7 @@
 #'
 
 makeShiny <- function(screenData, sampleAnnotations = c("sampleID", "patientID")) {
+
     dir.create("./shiny", showWarnings = FALSE)
     # add file name column
     if (!"fileName" %in% sampleAnnotations)
