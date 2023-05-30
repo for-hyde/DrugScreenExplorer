@@ -1,3 +1,5 @@
+
+x
 #' Generate a shiny app to explore process data interactively
 #'
 #' This function generates a customized shiny app for interactive exploration of the processed and annotated screen data
@@ -55,4 +57,11 @@ makeShiny <- function(screenData, sampleAnnotations = c("sampleID", "patientID")
     file.copy(tempShiny, "./shiny/app.R", overwrite = TRUE)
 
 }
+
+
+data(screenData_normalized)
+# make html report
+makeShiny(screenData_normalized)
+
+
 

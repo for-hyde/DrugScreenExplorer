@@ -40,3 +40,12 @@ makeReport <- function(screenData, showCode = FALSE, title = "Report for my drug
                     params = list(showCode = showCode,set_title = title,
                                   set_author = author, ifPlatePlot = ifPlatePlot), quiet = TRUE)
 }
+
+data(screenData_normalized)
+
+makeReport(screenData_normalized, showCode = TRUE,
+           title = 'Report example',
+           author = 'Author Name', ifPlatePlot = FALSE)
+
+
+
