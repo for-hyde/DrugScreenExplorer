@@ -19,88 +19,95 @@ ui <- navbarPage(
            titlePanel("Overview of samples in the screen"),
            dataTableOutput("sampleInfo")),
 
-  tabPanel("Plate plot",
-           titlePanel("Heatmap plot of drug screen plates"),
-           sidebarLayout(
-             sidebarPanel(
-               uiOutput("patientSeleBox"),
-               uiOutput("sampleSeleBox"),
-               uiOutput("plateSeleBox"),
-               uiOutput("valueSeleRadio"),
-               uiOutput("ifCensorCheck"),
-               uiOutput("censorLimitBox"),
-               uiOutput("ifCorCheck"), width = 4),
-             mainPanel(tags$style(type = "text/css",
-                                  ".shiny-output-error { visibility: hidden; }",
-                                  ".shiny-output-error:before { visibility: hidden; }"),
-                       plotlyOutput("plateHeatmap", width = 700, height = 400),
-                       column(dataTableOutput("infoTab"),width = 4),
-                       column(plotOutput("linePlot", width = 400, height = 300),
-                              width = 4), width = 8))),
+  tabPanel(
+    "Plate plot",
+    titlePanel("Heatmap plot of drug screen plates"),
+    sidebarLayout(
+      sidebarPanel(
+        uiOutput("patientSeleBox"),
+        uiOutput("sampleSeleBox"),
+        uiOutput("plateSeleBox"),
+        uiOutput("valueSeleRadio"),
+        uiOutput("ifCensorCheck"),
+        uiOutput("censorLimitBox"),
+        uiOutput("ifCorCheck"), width = 4),
 
-  tabPanel("Dose-response curves",
-           titlePanel("Plot dose-response curves for selected drugs and samples"),
-           sidebarLayout(
-             sidebarPanel(
-               uiOutput("nameDrugBox"),
-               uiOutput("seleGroup"),
-               conditionalPanel(condition = "input.selectGroup != 'All samples'"
-                                ,uiOutput("seleFeature")),
-               uiOutput("colorBox"),
-               uiOutput("ifCorCheck1"),
-               checkboxInput("ifIC50", "Fit IC50 curve", value = FALSE)
-             ),
-             mainPanel(tags$style(type="text/css",
-                                  ".shiny-output-error { visibility: hidden; }",
-                                  ".shiny-output-error:before { visibility: hidden; }"),
-                       plotlyOutput("curvePlot",width = 600, height= 400)
-             ))),
-  tabPanel("Clustering",
-           titlePanel("Clustering samples or drugs based on drug response"),
-           sidebarLayout(
-             sidebarPanel(uiOutput("seleGroup1"),
-                          conditionalPanel(condition = "input.selectGroup1 != 'All samples'"
-                                           ,uiOutput("seleFeature1")),
-                          uiOutput("sumTypeBox"),
-                          radioButtons("plotType","Plot type", c("Heatmap","PCA","t-SNE","Drug-drug correlation"),
-                                       selected = "Heatmap"),
-                          conditionalPanel(condition = "input.plotType == 't-SNE'",
-                                           numericInput("perplex", "Perplexity", value =20),
-                                           numericInput("Niter", "Iteration round", value = 1000)),
-                          conditionalPanel(condition = "input.plotType == 'Heatmap'",
-                                           radioButtons("ifRowNorm","Normalization", c("None","Row","Column"), selected = "None")),
-                          uiOutput("ifCorCheck2"),
-                          uiOutput("colorBox1"),
-                          checkboxInput("ifCensor1","Fix value range", value = FALSE),
-                          uiOutput("censorLimitBox1"),
-                          sliderInput("topPercent", "Top variant drugs", min = 10, max = 100, value = 100, step = 10),
-                          downloadButton("download", "Download as pdf"),
-                          numericInput("figWidth", label = "Figure width", value = 16),
-                          numericInput("figHeight", label = "Figure height", value = 15)
-             ),
+      mainPanel(tags$style(type = "text/css",
+                           ".shiny-output-error { visibility: hidden; }",
+                           ".shiny-output-error:before { visibility: hidden; }"),
+                plotlyOutput("plateHeatmap", width = 700, height = 400),
+                column(dataTableOutput("infoTab"), width = 4),
+                column(plotOutput("linePlot", width = 400, height = 300),
+                       width = 4), width = 8))),
 
-             mainPanel(
-               tags$style(type="text/css",
-                          ".shiny-output-error { visibility: hidden; }",
-                          ".shiny-output-error:before { visibility: hidden; }"
-               ),
-               actionButton("doPlot","Plot!", align = "center" ),
-               plotOutput("clusterPlot", width=800, height = 800)
-             ))),
-             
-  tabPanel("Association test",
-           titlePanel("Test associations between drug responses and sample annotations"),
-           sidebarLayout(sidebarPanel(uiOutput("seleGroup2"),
-                                      conditionalPanel(condition = "input.selectGroup2 != 'All samples'",
-                                                       uiOutput("seleFeature2")),
-                                      uiOutput("sumTypeBox1"),
-                                      uiOutput("factorBox"),
-                                      textOutput("methodBox"),
-                                      uiOutput("paramBox"),
-                                      uiOutput("ifCorCheck3")),
-                         mainPanel(dataTableOutput("testRes"),
-                                   plotlyOutput("diffPlot", width=500, height = 500))
-           )))
+  tabPanel(
+    "Dose-response curves",
+    titlePanel("Plot dose-response curves for selected drugs and samples"),
+    sidebarLayout(
+      sidebarPanel(
+        uiOutput("nameDrugBox"),
+        uiOutput("seleGroup"),
+        conditionalPanel(condition = "input.selectGroup != 'All samples'"
+                         ,uiOutput("seleFeature")),
+        uiOutput("colorBox"),
+        uiOutput("ifCorCheck1"),
+        checkboxInput("ifIC50", "Fit IC50 curve", value = FALSE)
+      ),
+      mainPanel(tags$style(type="text/css",
+                           ".shiny-output-error { visibility: hidden; }",
+                           ".shiny-output-error:before { visibility: hidden; }"),
+                plotlyOutput("curvePlot",width = 600, height= 400)
+      ))),
+
+  tabPanel(
+    "Clustering",
+    titlePanel("Clustering samples or drugs based on drug response"),
+    sidebarLayout(
+      sidebarPanel(uiOutput("seleGroup1"),
+                   conditionalPanel(condition = "input.selectGroup1 != 'All samples'"
+                                    ,uiOutput("seleFeature1")),
+                   uiOutput("sumTypeBox"),
+                   radioButtons("plotType","Plot type", c("Heatmap","PCA","t-SNE","Drug-drug correlation"),
+                                selected = "Heatmap"),
+                   conditionalPanel(condition = "input.plotType == 't-SNE'",
+                                    numericInput("perplex", "Perplexity", value =20),
+                                    numericInput("Niter", "Iteration round", value = 1000)),
+                   conditionalPanel(condition = "input.plotType == 'Heatmap'",
+                                    radioButtons("ifRowNorm","Normalization", c("None","Row","Column"), selected = "None")),
+                   uiOutput("ifCorCheck2"),
+                   uiOutput("colorBox1"),
+                   checkboxInput("ifCensor1","Fix value range", value = FALSE),
+                   uiOutput("censorLimitBox1"),
+                   sliderInput("topPercent", "Top variant drugs", min = 10, max = 100, value = 100, step = 10),
+                   downloadButton("download", "Download as pdf"),
+                   numericInput("figWidth", label = "Figure width", value = 16),
+                   numericInput("figHeight", label = "Figure height", value = 15)),
+
+      mainPanel(
+        tags$style(type="text/css",
+                   ".shiny-output-error { visibility: hidden; }",
+                   ".shiny-output-error:before { visibility: hidden; }"
+        ),
+        actionButton("doPlot","Plot!", align = "center" ),
+        plotOutput("clusterPlot", width=800, height = 800)
+      ))),
+
+  tabPanel(
+    "Association test",
+    titlePanel("Test associations between drug responses and sample annotations"),
+    sidebarLayout(sidebarPanel(uiOutput("seleGroup2"),
+                               conditionalPanel(condition = "input.selectGroup2 != 'All samples'",
+                                                uiOutput("seleFeature2")),
+                               uiOutput("sumTypeBox1"),
+                               uiOutput("factorBox"),
+                               textOutput("methodBox"),
+                               uiOutput("paramBox"),
+                               uiOutput("ifCorCheck3")),
+                  mainPanel(dataTableOutput("testRes"),
+                            plotlyOutput("diffPlot", width=500, height = 500))
+    )
+  )
+)
 
 
 server <- function(input, output, session) {
@@ -126,35 +133,47 @@ server <- function(input, output, session) {
 
   # DT table for showing the sample annotations and filtering
   output$sampleInfo <- renderDataTable({
+
     infoTable_new <- mutate_if(infoTable, is.character, as.factor) %>%
       select(-fileName)
+
     datatable(infoTable_new, filter = "top", rownames = FALSE,
               selection = "none", style = "bootstrap")
   })
 
   # Reactive object for getting filtered samples
   filteredData <- reactive({
-    selectedPlates <- as.character(infoTable[input$sampleInfo_rows_all, ] %>%
-                                     pull(fileName))
+
+    #- ? what does sampleInfo_rows_all refer to?
+    selectedPlates <- infoTable[input$sampleInfo_rows_all, ] %>%
+      pull(fileName) %>%
+      as.character()
+
     dataNew <- filter(screenData, fileName %in% selectedPlates)
     dataNew
   })
 
-  ## Second panel: plate heatmap for a plate##
+
+## Second panel: plate heatmap for a plate##
 
   output$patientSeleBox <- renderUI({
     if ("patientID" %in% colnames(filteredData())) {
-      selectInput("selePatient", "Select a patient", sort(unique(filteredData()$patientID)),
+      selectInput("selePatient", "Select a patient",
+                  sort(unique(filteredData()$patientID)),
                   size = 5, selectize = FALSE)
     }
   })
 
   output$sampleSeleBox <- renderUI({
+
+    # ?Why uses the conditions
     if (all(c("patientID", "sampleID") %in% colnames(filteredData()))) {
       sampleIDs <- unique(filter(filteredData(),
                                  patientID == input$selePatient)$sampleID)
+
     } else if ("sampleID" %in% colnames(filteredData())) {
       sampleIDs <- unique(filteredData()$sampleID)
+
     } else sampleIDs <- NULL
 
     if (!is.null(sampleIDs)) {
@@ -163,6 +182,7 @@ server <- function(input, output, session) {
   })
 
   output$plateSeleBox <- renderUI({
+
     if ("sampleID" %in% colnames(filteredData())) {
       plateIDs <- unique(filter(filteredData(), sampleID == input$seleSample)$fileName)
     } else {
@@ -404,11 +424,14 @@ server <- function(input, output, session) {
       valueType <- "normVal"
     }
 
-    p <- ggplot(data = plotTab, aes_string(x = "concentration", y = valueType, col = input$seleColor, group = "sampleID")) +
-      geom_point(pch = 16, size = 4) + theme_classic() + scale_x_log10(labels = fmt_dcimals(3)) + theme(axis.line.x = element_line(size = 0.5,
-                                                                                                                                   linetype = "solid", colour = "black"), axis.line.y = element_line(size = 0.5, linetype = "solid", colour = "black"),
-                                                                                                        plot.title = element_text(hjust = 0.5, face = "bold", color = "red")) + ylab("Viability") + xlab("Concentration") + coord_cartesian(ylim = c(0,
-                                                                                                                                                                                                                                                     1.5)) + ggtitle(input$nameDrug)
+    p <- ggplot(data = plotTab,
+                aes_string(x = "concentration", y = valueType, col = input$seleColor, group = "sampleID")) +
+      geom_point(pch = 16, size = 4) +
+      theme_classic() +
+      scale_x_log10(labels = fmt_dcimals(3)) +
+      theme(axis.line.x = element_line(size = 0.5, linetype = "solid", colour = "black"),
+            axis.line.y = element_line(size = 0.5, linetype = "solid", colour = "black"))
+
     if (input$ifIC50){
       p <- p + geom_smooth(method = "fitIC50", se = FALSE, method.args = list(logDose = 10))
     } else {
@@ -418,9 +441,6 @@ server <- function(input, output, session) {
     if (colType == "continuous") {
       p <- p + scale_color_gradient(low = "blue", high = "red")
     }
-
-    p
-
   })
 
   output$curvePlot <- renderPlotly({
@@ -729,6 +749,7 @@ server <- function(input, output, session) {
       plotTab
     }
   })
+
   # reactive object to perform the test
   testRes <- reactive({
     if (!is.null(input$seleFactor) && !is.null(testInput())) {
@@ -779,6 +800,7 @@ server <- function(input, output, session) {
 
   # boxplot for the t-Test panel
   output$diffPlot <- renderPlotly({
+
     if (!is.null(testInput()) && !is.null(input$seleFactor)) {
       plotTab <- testInput()
       pTab <- testRes()
@@ -812,3 +834,4 @@ server <- function(input, output, session) {
 }
 
 shinyApp(ui = ui, server = server)
+

@@ -1,4 +1,4 @@
-#' Summarise drug effect across concentrations using a 4-parameter log-logistic model
+#' Summarize drug effect across concentrations using a 4-parameter log-logistic model
 #'
 #' This function will fit a 4-parameter log-logistic model using dr4pl package based on the input dose-response table and return the model parameters as well as integrated area under the fitted sigmoid curve.
 #' @param formula formula for the curve fitting.
@@ -29,6 +29,7 @@
 sumIC50 <- function(formula, data = NULL, minConc, maxConc, n = 100, ...) {
 
   res <- tryCatch({
+
     # fit sigmoid model
     mm <- fitIC50(formula, data, ...)
 
@@ -42,9 +43,11 @@ sumIC50 <- function(formula, data = NULL, minConc, maxConc, n = 100, ...) {
                     attr(mm$parm_fit$parameters, "param_info"))
     res <- c(res, AUC = aucVal)
     res
+
   }, error = function(err) {
     warning("Curve fitting failed, NA values generated. ")
-    data.frame(t(structure(rep(NA, 5), names = c("UpperLimit", "IC50", "Slope", "LowerLimit", "AUC"))))
+    data.frame(t(structure(rep(NA, 5),
+                           names = c("UpperLimit", "IC50", "Slope", "LowerLimit", "AUC"))))
   })
 
   return(res)
