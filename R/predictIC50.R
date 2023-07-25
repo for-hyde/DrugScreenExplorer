@@ -30,7 +30,7 @@ predict.fitIC50 <- function(object, newdata = NULL,
                             level = 0.95,
                             interval = c("none", "confidence", "prediction"), ...) {
 
-  #- check
+  #- check object
   if (!inherits(object, "fitIC50"))
     stop("object should be an output of fitIC50 function: an object of 'fitIC50' class")
 
@@ -63,7 +63,7 @@ predict.fitIC50 <- function(object, newdata = NULL,
       conc <- newdata[, concName]
     }
   }
-
+  
   if (!is.null(logDose))
     conc <- logDose^conc
   res <- vapply(conc, predY, numeric(1))
