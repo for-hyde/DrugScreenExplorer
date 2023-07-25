@@ -25,19 +25,28 @@
 #' data('screenData_normalized')
 #' screenData_fitted <- fitEdgeEffect(screenData_normalized, method = 'loess', useNeg = TRUE)
 
-fitEdgeEffect <- function(screenData, method = "loess", useNeg = TRUE,
-                          useLowConcentrations = 0, span = 1, exclude = c()) {
+fitEdgeEffect <- function(screenData,
+                          method = "loess",
+                          useNeg = TRUE,
+                          useLowConcentrations = 0L,
+                          span = 1,
+                          exclude = c()) {
 
   # a function to calculate position correction factor for each plate
+  # check
+  if (!is.data.frame(screenData)){
+    stop("screenData should be a data frame")
+  }
 
   # check if normalized values is present
   if (!"normVal" %in% colnames(screenData)) {
     error("Normalized values are not present. Please perform plate normalization first.")
   }
 
-  # remove precalculated edge factor if present
-  if ("edgeFactor" %in% colnames(screenData))
+  # remove pre-calculated edge factor if present
+  if ("edgeFactor" %in% colnames(screenData)){
     screenData[["edgeFactor"]] <- NULL
+  }
 
   # check if data has been normalized find n lowest concentrations
   if (useLowConcentrations > 0) {
@@ -46,7 +55,7 @@ fitEdgeEffect <- function(screenData, method = "loess", useNeg = TRUE,
       stop("No information of name, concentration and well type found")
     } else {
       nLowest <- function(x, n) {
-        na.omit(sort(unique(x))[seq_len(n)]) #- remove possible NA when N > # of concentrations
+        na.omit(sort(unique(x))[seq_len(n)]) # remove possible NA when N > # of concentrations
       }
 
       lowConcTab <- dplyr::filter(screenData, wellType == "sample") %>%
@@ -65,14 +74,12 @@ fitEdgeEffect <- function(screenData, method = "loess", useNeg = TRUE,
     dplyr::filter(!fileName %in% exclude)
 
   if (method == "loess") {
-
     screenSub <- group_by(screenSub, fileName) %>%
       do(fitOneLoess(., useNeg, useLowConcentrations, lowConcTab, span)) %>%
       ungroup() %>%
       dplyr::select(fileName, rowID, colID, edgeFactor)
 
   } else if (method == "sigmoid") {
-
     screenSub <- group_by(screenSub, fileName) %>%
       do(fitOneSigmoid(., useNeg, useLowConcentrations, lowConcTab)) %>%
       ungroup() %>%

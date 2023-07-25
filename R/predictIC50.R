@@ -26,9 +26,11 @@
 #' predict(mm, newdata = c(0.25, 2.5, 5, 15))
 
 predict.fitIC50 <- function(object, newdata = NULL,
-                            se.fit = FALSE, level = 0.95,
+                            se.fit = FALSE,
+                            level = 0.95,
                             interval = c("none", "confidence", "prediction"), ...) {
 
+  #- check
   if (!inherits(object, "fitIC50"))
     stop("object should be an output of fitIC50 function: an object of 'fitIC50' class")
 

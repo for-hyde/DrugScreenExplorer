@@ -28,6 +28,10 @@
 
 fitIC50 <- function(formula, data = NULL, weights = NULL, logDose = NULL, ...) {
 
+  #- check
+  if (!is.formula(formula))
+    stop("The input should be a formula")
+
   if (!is.null(data)) {
     modelFrame <- model.frame(formula, data)
   } else {

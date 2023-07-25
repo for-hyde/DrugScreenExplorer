@@ -243,6 +243,7 @@ corEdgeLinear <- function(x, m) {
   s
 }
 
+
 # estimate the edge effect on one plate
 
 estimateOnePlate <- function(plateData, nLayer, onlyNeg) {

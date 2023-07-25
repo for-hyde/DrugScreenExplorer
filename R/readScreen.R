@@ -75,43 +75,41 @@ readScreen <- function(rawDir,
                        allowNA = FALSE,
                        bySample = FALSE) {
 
-
-  #- argument matching
+  # argument matching
   method = match.arg(method, c("negatives", "NPI"))
   stopifnot(is.numeric(discardLayer))
 
   # read sample annotation files
-  if (commaAsDecimal) {
-    deciMark <- ","
-  } else {
-    deciMark <- "."
-  }
 
-  sampleAnno  <- read_delim(plateAnnotationFile, delim = "\t",
-                            locale = locale(decimal_mark = deciMark),
-                            col_types = cols())
+  deciMark <- ifelse(commaAsDecimal, ",", ".")
+
+  sampleAnno  <- read_delim(
+    plateAnnotationFile,
+    delim = "\t",
+    locale = locale(decimal_mark = deciMark),
+    col_types = cols()
+  )
   rawFileList <- sampleAnno$fileName
 
   # check if there are duplicated file names
   allFiles <- vapply(rawFileList, basename, "c")
-  if (sum(duplicated(allFiles)) > 0)
+  if (any(duplicated(allFiles))){
     stop("Duplicated file names found")
+  }
 
   # read screening data plate by plate
   screenData <- lapply(rawFileList, function(eachFile) {
-
     plateData <- tryCatch({
-      readPlate(plateFile = paste0(rawDir,"/",eachFile), rowRange = rowRange,
+      readPlate(plateFile = paste0(rawDir,"/",eachFile),
+                rowRange = rowRange,
                 colRange = colRange, sep = sep,
-                commaAsDecimal = commaAsDecimal, allowNA = allowNA) %>%
+                commaAsDecimal = commaAsDecimal,
+                allowNA = allowNA) %>%
         dplyr::mutate(fileName = eachFile)
-
     }, error = function(e) {
       stop(sprintf("Error encountered when reading %s", eachFile))
     })
-
   }) %>% bind_rows()
-
 
   # add sample annotations to screenData
   screenData <- left_join(screenData, sampleAnno, by = "fileName")
@@ -120,7 +118,12 @@ readScreen <- function(rawDir,
   #screenData <- dplyr::mutate(screenData, fileName = tools::file_path_sans_ext(fileName))
 
   # read drug annotation files
-  drugAnno <- read_delim(wellAnnotationFile, delim = "\t", locale = locale(decimal_mark = deciMark), col_types = cols())
+  drugAnno <- read_delim(
+    wellAnnotationFile,
+    delim = "\t",
+    locale = locale(decimal_mark = deciMark),
+    col_types = cols()
+  )
 
   # add drug annotation information
   if ("plateID" %in% colnames(drugAnno)) {
@@ -130,12 +133,12 @@ readScreen <- function(rawDir,
   }
 
   # add well type information
-  if (length(intersect(negWell, posWell)) != 0)
+  if (length(intersect(negWell, posWell)) != 0){
     stop("Overlap in postive and negative control well list")
+  }
 
   if ("name" %in% colnames(screenData)) {
-    screenData <- dplyr::mutate(screenData, wellType = ifelse(wellID %in% negWell | name %in%
-                                                                negWell, "neg", "sample")) %>%
+    screenData <- dplyr::mutate(screenData, wellType = ifelse(wellID %in% negWell | name %in% negWell, "neg", "sample")) %>%
       dplyr::mutate(wellType = ifelse(wellID %in% posWell | name %in% posWell, "pos", wellType))
   } else {
     screenData <- dplyr::mutate(screenData, wellType = ifelse(wellID %in% negWell, "neg", "sample")) %>%
@@ -144,23 +147,30 @@ readScreen <- function(rawDir,
 
   if (normalization) {
     # normalizing plates
-    screenData <- normalizePlate(screenData = screenData, method = method,
-                                 discardLayer = discardLayer, bySample = bySample)
+    screenData <- normalizePlate(
+      screenData = screenData,
+      method = method,
+      discardLayer = discardLayer,
+      bySample = bySample
+      )
   }
 
-  if ("batch" %in% colnames(screenData)) {     # batch as factor
+  if ("batch" %in% colnames(screenData)) {
+    # batch as factor
     screenData$batch <- factor(screenData$batch)
   }
 
-  if ("concentration" %in% colnames(screenData)) {     # concentration as numeric
+  if ("concentration" %in% colnames(screenData)) {
+    # concentration as numeric
     screenData$concentration <- as.numeric(as.character(screenData$concentration))
   }
 
   screenData <- ungroup(screenData)  #%>% mutate_if(is.character, factor)
 
   #clean up file name
-  screenData <- screenData %>% dplyr::mutate(fileName = basename(fileName)) %>%
-    dplyr::mutate(screenData, fileName = tools::file_path_sans_ext(fileName))
+  screenData <- screenData %>%
+    dplyr::mutate(fileName = basename(fileName)) %>%
+    dplyr::mutate(fileName = tools::file_path_sans_ext(fileName))
 
   return(screenData)
 }
