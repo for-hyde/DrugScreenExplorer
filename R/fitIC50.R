@@ -1,4 +1,4 @@
-# Fitting 4 parameter log-logistic (4PL) models.
+#' Fitting 4 parameter log-logistic (4PL) models.
 #'
 #' Use the dr4pl package to perform IC50 curve fitting. The outputs can be directly used for geom_smooth() in ggplot2.
 #'
@@ -11,6 +11,7 @@
 #' @param ... further arguments to be passed to \textit{dr4pl} function in \textit{dr4pl} package.
 #' @export fitIC50
 #' @import dr4pl
+#' @import plyr
 #' @return fitIC50 returns an object of class 'fitIC50', which is a list containing the following components:
 #' \item{model}{the input dose-response table}
 #' \item{formula}{the formula used for the model fitting}
@@ -29,7 +30,7 @@
 fitIC50 <- function(formula, data = NULL, weights = NULL, logDose = NULL, ...) {
 
   #- check
-  if (!is.formula(formula))
+  if (!plyr::is.formula(formula))
     stop("The input should be a formula")
 
   if (!is.null(data)) {

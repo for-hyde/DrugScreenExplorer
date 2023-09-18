@@ -2,18 +2,18 @@
 % Please edit documentation in R/sumIC50.R
 \name{sumIC50}
 \alias{sumIC50}
-\title{Summarise drug effect across concentrations using a 4-parameter log-logistic model}
+\title{Summarize drug effect across concentrations using a 4-parameter log-logistic model}
 \usage{
-sumIC50(formula, data = NULL, minConc = 0, maxConc = 15, n = 100, ...)
+sumIC50(formula, data = NULL, minConc, maxConc, n = 100, ...)
 }
 \arguments{
 \item{formula}{formula for the curve fitting.}
 
 \item{data}{a data frame containing the raw concentration and the viability value.}
 
-\item{minConc}{lower bound of concentrations for the integration of area under curve, default value is 0.}
+\item{minConc}{lower bound of concentrations for the integration of area under curve.}
 
-\item{maxConc}{upper bound of concentrations for the integration of area under curve, default value is 15.}
+\item{maxConc}{upper bound of concentrations for the integration of area under curve.}
 
 \item{n}{number of bins for integration.}
 

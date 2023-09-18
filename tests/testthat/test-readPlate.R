@@ -50,3 +50,4 @@ test_that("test the argument about allowNA", {
   unlink(temp_file)
 
 })
+

@@ -60,6 +60,7 @@ makepdf <- function(x, name, ncol = 3, nrow = 2, width = 20, height = 12) {
 
   if (length(x) == 0)
     return(NULL)
+
   pdf(name, width = width, height = height)
   for (i in seq(1, length(x), by = ncol * nrow)) {
     # print(names(x)[i])
@@ -225,7 +226,7 @@ calcAUC <- function(value, conc, viabCut = NULL) {
 }
 
 # Function to correct edge effect using a specialized linear model, to fix issue of over correcting of bliss model. This
-# is only an experimental funciton.
+# is only an experimental function
 
 corEdgeLinear <- function(x, m) {
 
@@ -327,6 +328,7 @@ plotViability <- function(matPlate, plateList, limits, ifCorrected) {
   }
 
   plotList <- lapply(plateList, function(plateName) {
+
     p <- dplyr::filter(matPlate, fileName == plateName) %>%
       ggplot(aes(x = colID, y = rowID, fill = normVal)) +
       geom_tile(color = "grey80") +

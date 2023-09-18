@@ -30,8 +30,10 @@ Depends on the number \emph{N} specified with the \code{nLayer} argument, this f
 If a file name is specified for the \code{pdfName} argument, a pdf file that contains a bar plot visualizing the edge effect intensity will be created in the working directly.
 }
 \description{
-This function estimates the intensity of edge effect on each screen plate by comparing the median signal intensities on the edge to those on the inner plate.
-The results will be shown as a bar plot with plate IDs as x-axis and edge effect intensities as y-axis.
+This function estimates the intensity of edge effect on each screen plate by
+comparing the median signal intensities on the edge to those on the inner plate.
+The results will be shown as a bar plot with plate IDs as x-axis and edge
+effect intensities as y-axis.
 }
 \examples{
 # load processed data
@@ -39,7 +41,7 @@ data('screenData_normalized')
 
 # estimate the intensity of edge effect.
 # The wells from the first outside layer on the plate will be defined as the edge wells.
-estimateEdgeEffect(screenData_normalized, nLayer =1)
+estimateEdgeEffect(screenData_normalized, nLayer = 1)
 
 # Please see the vignette for more information.
 }

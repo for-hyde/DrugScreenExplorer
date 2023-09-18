@@ -9,7 +9,7 @@
 #' @param author a character string specifying the author name
 #' @param ifPlatePlot a boolean value, whether to make plate heatmap plots in the report.
 #' Plate heatmap plots can be time consuming for large screen datasets.
-#' @export
+#' @export makeReport
 #' @return This function creates an html file named 'report.html' in a folder named 'report' in the working directory.
 #' @examples
 #' # load processed data
@@ -37,15 +37,12 @@ makeReport <- function(screenData, showCode = FALSE, title = "Report for my drug
 
   # render html with parameters
   rmarkdown::render(input = "./report/report.Rmd", output_file = "report.html",
-                    params = list(showCode = showCode,set_title = title,
-                                  set_author = author, ifPlatePlot = ifPlatePlot), quiet = TRUE)
+                    params = list(showCode = showCode,
+                                  set_title = title,
+                                  set_author = author,
+                                  ifPlatePlot = ifPlatePlot), quiet = TRUE)
 }
 
-data(screenData_normalized)
-
-makeReport(screenData_normalized, showCode = TRUE,
-           title = 'Report example',
-           author = 'Author Name', ifPlatePlot = FALSE)
 
 
 

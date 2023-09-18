@@ -8,7 +8,7 @@ correctEdgeEffect(
   screenData,
   estimateMethod = "loess",
   useNeg = TRUE,
-  useLowConcentrations = 0,
+  useLowConcentrations = 0L,
   span = 1,
   correctMethod = "bliss",
   exclude = c()
@@ -32,7 +32,7 @@ The default value is 0, means no sample wells are used. If the value n >= 1, the
 
 \item{span}{a numeric value. The span parameter for \code{loess} method, which controls the degree of smoothing.}
 
-\item{correctMethod}{a character string specifying the method used for subtracting the edge effect. Currently two methods 'bliss' and 'linear' are supported.
+\item{correctMethod}{a character string specifying the method used for adjusting the edge effect. Currently two methods 'bliss' and 'linear' are supported.
 If \code{bliss} is selected, the corrected values are simply the normalized signal intensity values divided by the estimated incubation/edge effect intensity.
 If \code{linear} is selected, the correction process will be smoothed by a linear function depends on the original normalized signal intensity. This option is
 suitable for the situation when the edge effect is very strong and results in instability in the correction process.}

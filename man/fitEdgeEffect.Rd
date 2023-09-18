@@ -8,7 +8,7 @@ fitEdgeEffect(
   screenData,
   method = "loess",
   useNeg = TRUE,
-  useLowConcentrations = 0,
+  useLowConcentrations = 0L,
   span = 1,
   exclude = c()
 )

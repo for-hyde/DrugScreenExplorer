@@ -7,18 +7,12 @@
 normalizePlate(
   screenData,
   method = "negatives",
-  discardLayer = 0,
+  discardLayer = 0L,
   bySample = FALSE
 )
 }
 \arguments{
 \item{screenData}{a data frame that contains the output from the \code{readScreen()} function.}
-
-\item{method}{a character string, either 'negatives' or 'both', specifying the method of per-plate normalization.
-If 'negatives' is used, the raw signals on the plate will be divided by the median signal intensity of negative control wells on the same plate.
-If 'both' is used, a 'normalized percent inhibition (NPI)' is applied in a per-plate basis.
-NPI measures the extent to which the signal of interest is diminished compared to a positive control: \eqn{NPI = (Neg - x)/(Neg - Pos)}.
-The default value is 'negatives'.}
 
 \item{discardLayer}{an integer value. To avoid the impact of incubation effect on the negative controls,
 a certain number of the exterior layers on the plate can be ignored when calculating the median of control wells.

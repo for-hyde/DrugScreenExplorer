@@ -35,3 +35,5 @@ test_that("Test argument: logDose ", {
                  "Concentration is transformed back with the given base:2")
 
 })
+
+

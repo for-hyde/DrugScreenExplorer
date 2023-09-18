@@ -22,10 +22,11 @@ plotPlate(
 
 \item{plotPlate}{a character string or a vector of character strings specifying the file name of the plates. If all plates should be included, 'all' can be used. Default value is 'all'}
 
-\item{plotType}{a character string specifying the type of the plot, one of 'layout', 'zscore' and 'viability'.
+\item{plotType}{a character string specifying the type of the plot, one of 'layout', 'zscore', 'viability' and 'edgeEffect'.
 If 'layout' is specified, the plate layout will be plotted in a heatmap according to the information in the 'wellType' column.
 If 'zscore' is chosen, the zscore of each well on a plate will be plotted in the heatmaps.
 If 'viability' is used, the normalized intensity or viability values on each plate will be plotted.
+If plotType = 'edgeEffect', the edge effects estimated using \code{fitEdgeEffect()} will be plotted.
 This choice is only valid when plate normalization is performed by \code{readScreen()} function or \code{normalizePlate()} function. Default is 'layout'}
 
 \item{ifCorrected}{a logical value, whether to plot values after edge effect correction. The default value is FALSE, plot the original value.}

@@ -1,3 +1,4 @@
+#'
 #' Read and assemble a drug screen dataset
 #'
 #' This function creates a data frame that contains the screening result from a whole drug screen experiment.
@@ -76,11 +77,10 @@ readScreen <- function(rawDir,
                        bySample = FALSE) {
 
   # argument matching
-  method = match.arg(method, c("negatives", "NPI"))
+  method <- match.arg(method, c("negatives", "NPI"))
   stopifnot(is.numeric(discardLayer))
 
   # read sample annotation files
-
   deciMark <- ifelse(commaAsDecimal, ",", ".")
 
   sampleAnno  <- read_delim(

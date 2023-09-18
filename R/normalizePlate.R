@@ -4,9 +4,10 @@
 #'
 #' @param screenData a data frame that contains the output from the \code{readScreen()} function.
 #' @param method a character string, either 'negatives' or 'NPI', specifying the method of per-plate normalization.
-#' If 'negatives', the raw signals on the plate will be divided by the median signal intensity of negative control wells on the same plate.
+#' If 'negatives', the raw signals on the plate will be divided by the median signal intensity of negative control wells on the same plate
+#' \eqn{x_{normalized} = x / Median(x_{neg})}.
 #' If 'NPI', a 'normalized percent inhibition (NPI)' is applied in a per-plate basis.
-#' NPI measures the extent to which the signal of interest is diminished compared to a positive control: \eqn{NPI = (Neg - x)/(Neg - Pos)}.
+#' NPI measures the extent to which the signal of interest is diminished compared to a positive control: \eqn{x_{normalized} = (x - Median(x_{pos}))/(Median(x_{neg}) - Median(x_{pos})).
 #' The default value is 'negatives'.
 #' @param discardLayer an integer value. To avoid the impact of incubation effect on the negative controls,
 #' a certain number of the exterior layers on the plate can be ignored when calculating the median of control wells.
@@ -36,7 +37,7 @@ normalizePlate <- function(screenData, method = "negatives", discardLayer = 0L,
                            bySample = FALSE) {
 
   #- argument checking
-  method = match.arg(method, c("negatives", "NPI"))
+  method <- match.arg(method, c("negatives", "NPI"))
   stopifnot(is.numeric(discardLayer))
 
   if (discardLayer > 0) {

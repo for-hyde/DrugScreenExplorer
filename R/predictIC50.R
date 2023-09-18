@@ -30,15 +30,17 @@ predict.fitIC50 <- function(object, newdata = NULL,
                             level = 0.95,
                             interval = c("none", "confidence", "prediction"), ...) {
 
-  #- check object
+  # check object
   if (!inherits(object, "fitIC50"))
     stop("object should be an output of fitIC50 function: an object of 'fitIC50' class")
 
+  # use training data if newdata not available
   if (is.null(newdata))
     newdata <- object$model
   else
     newdata <- newdata
 
+  # derive parameters
   params  <- object$parm_fit$parameters
   logDose <- object$logDose
 
@@ -48,7 +50,7 @@ predict.fitIC50 <- function(object, newdata = NULL,
   b <- params[3]
 
   predY <- function(x) {
-    y = d + (a - d) / (1 + (x/c)^b)
+    y <- d + (a - d) / (1 + (x/c)^b)
     names(y) <- NULL
     return(y)
   }
@@ -63,7 +65,7 @@ predict.fitIC50 <- function(object, newdata = NULL,
       conc <- newdata[, concName]
     }
   }
-  
+
   if (!is.null(logDose))
     conc <- logDose^conc
   res <- vapply(conc, predY, numeric(1))
@@ -72,6 +74,7 @@ predict.fitIC50 <- function(object, newdata = NULL,
   #- add newdata
   attr(res, "newdata") <- as.numeric(conc)
   return(res)
+
 }
 
 

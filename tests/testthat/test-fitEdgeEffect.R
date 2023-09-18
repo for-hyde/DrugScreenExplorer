@@ -1,15 +1,17 @@
+#- test 1
+
 load("testData/expectedOutput/screenData.RData")
-# load("testData/expectedOutput/edgeFactor.RData")
+load("testData/expectedOutput/edgeFactor.RData")
 
 test_that("`useNeg = F` should be identical to `useNeg = TRUE & useLowConcentrations = 100`", {
 
   #- For loess
-  testEdgeFactor_loess_noNeg <- fitEdgeEffect(expectScreen_norm,
+  testEdgeFactor_loess_noNeg <- fitEdgeEffect(screenData_norm,
                                               method = "loess",
                                               useNeg = F,
                                               useLowConcentrations = 0)
 
-  testEdgeFactor_loess_NegAddslow <- fitEdgeEffect(expectScreen_norm,
+  testEdgeFactor_loess_NegAddslow <- fitEdgeEffect(screenData_norm,
                                                    method = "loess",
                                                    useNeg = TRUE,
                                                    useLowConcentrations = 100)
@@ -17,12 +19,12 @@ test_that("`useNeg = F` should be identical to `useNeg = TRUE & useLowConcentrat
                testEdgeFactor_loess_NegAddslow$edgeFactor)
 
 
-  testEdgeFactor_sigmoid_noNeg <- fitEdgeEffect(expectScreen_norm,
+  testEdgeFactor_sigmoid_noNeg <- fitEdgeEffect(screenData_norm,
                                                 method = "sigmoid",
                                                 useNeg = F,
                                                 useLowConcentrations = 0)
 
-  testEdgeFactor_sigmoid_NegAddslow <- fitEdgeEffect(expectScreen_norm,
+  testEdgeFactor_sigmoid_NegAddslow <- fitEdgeEffect(screenData_norm,
                                                      method = "sigmoid",
                                                      useNeg = TRUE,
                                                      useLowConcentrations = 100)
@@ -31,7 +33,24 @@ test_that("`useNeg = F` should be identical to `useNeg = TRUE & useLowConcentrat
 
 })
 
-#- screenDate ----
+#- test 2 ----
+
+testEdgeFactor_loess <- fitEdgeEffect(screenData_norm,
+                                      method = "loess",
+                                      useNeg = TRUE,
+                                      useLowConcentrations = 0)$edgeFactor
+testEdgeFactor_loess_allWell <- fitEdgeEffect(screenData_norm,
+                                              method = "loess",
+                                              useNeg = FALSE,
+                                              useLowConcentrations = 0)$edgeFactor
+testEdgeFactor_sigmoid <- fitEdgeEffect(screenData_norm,
+                                        method = "sigmoid",
+                                        useNeg = TRUE,
+                                        useLowConcentrations = 0)$edgeFactor
+testEdgeFactor_sigmoid_allWell <- fitEdgeEffect(screenData_norm,
+                                                method = "sigmoid",
+                                                useNeg = FALSE,
+                                                useLowConcentrations = 0)$edgeFactor
 
 test_that("Fit edge factor using loess method with negative control wells", {
   expect_equal(edgeFactor_loess, testEdgeFactor_loess)
@@ -48,7 +67,6 @@ test_that("Fit edge factor using sigmoid method with negative control wells", {
 test_that("Fit edge factor using loess method with all wells", {
   expect_equal(edgeFactor_sigmoid_allWell, testEdgeFactor_sigmoid_allWell)
 })
-
 
 test_that("Estimate edge effect strength using 1 layer", {
   expect_equal(estimateOnePlate(screenOnePlate, nLayer =1, onlyNeg = FALSE), edgeVal1)

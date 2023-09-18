@@ -16,7 +16,7 @@
 #' sample wells with low concentrations of compounds can be considered as 'de facto' negative controls and included in edge effect estimation.
 #' The default value is 0, means no sample wells are used. If the value n >= 1, the n lowest concentrations will be used.
 #' @param span a numeric value. The span parameter for \code{loess} method, which controls the degree of smoothing.
-#' @param correctMethod a character string specifying the method used for subtracting the edge effect. Currently two methods 'bliss' and 'linear' are supported.
+#' @param correctMethod a character string specifying the method used for adjusting the edge effect. Currently two methods 'bliss' and 'linear' are supported.
 #' If \code{bliss} is selected, the corrected values are simply the normalized signal intensity values divided by the estimated incubation/edge effect intensity.
 #' If \code{linear} is selected, the correction process will be smoothed by a linear function depends on the original normalized signal intensity. This option is
 #' suitable for the situation when the edge effect is very strong and results in instability in the correction process.
@@ -54,7 +54,7 @@ correctEdgeEffect <- function(screenData,
   if (!"edgeFactor" %in% colnames(screenData)) {
     # edge effect estimation hasn't been performed. Estiamte the edge effect first
     screenData <- fitEdgeEffect(screenData,
-                                ethod = estimateMethod,
+                                method = estimateMethod,
                                 useNeg = useNeg,
                                 useLowConcentrations = useLowConcentrations,
                                 span = span,

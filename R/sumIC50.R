@@ -1,3 +1,4 @@
+
 #' Summarize drug effect across concentrations using a 4-parameter log-logistic model
 #'
 #' This function will fit a 4-parameter log-logistic model using dr4pl package based on the input dose-response table and return the model parameters as well as integrated area under the fitted sigmoid curve.

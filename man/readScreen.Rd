@@ -48,10 +48,10 @@ A regular expression can be used. The default value is using either tab or semic
 \item{normalization}{a logical value to indicate whether to calculate percent inhibition
 based on control wells on the plate. Default is FALSE.}
 
-\item{method}{a character string, either 'negatives' or 'both',
-specifying the method for calculating percent inhibition values. If 'negatives' is used,
+\item{method}{a character string, either 'negatives' or 'NPI',
+specifying the method for calculating percent inhibition values. If 'negatives',
 each measurement on the plate will be divided by the median of the values of negative control wells on the same plate.
-If 'both' is used, a 'normalized percent inhibition (NPI)' is applied in a per-plate basis.
+If 'NPI', a 'normalized percent inhibition (NPI)' is applied in a per-plate basis.
 For an inhibition assay, this method divides the difference between each measurement on a plate and
 the median measurement of the positive controls on that plate by the difference between the median measurement of
 negative controls and positive controls on that well. The default value is 'negatives'.}
@@ -60,9 +60,9 @@ negative controls and positive controls on that well. The default value is 'nega
 a certain number of the exterior wells on the plate can be ignored when summarising the measurement of controls.
 0 means do not discard any control wells. A value above zero indicates the \code{N} layers of wells on the edge should be discarded.}
 
-\item{commaAsDecimal}{a logical value, whether commas is used as decimal in the input data. Default if FALSE.}
+\item{commaAsDecimal}{a logical value, whether commas is used as decimal in the input data. Default is FALSE.}
 
-\item{allowNA}{a logical value, whether to allow NA (missing or empty) values in the input data.}
+\item{allowNA}{a logical value, whether to allow NA (missing or empty) values in the input data. Default is FALSE.}
 
 \item{bySample}{a logic value, indicates whether to normalize the viability by sample rather than by plate.
 This is for situations where multiple samples are on the same plate.}
@@ -83,12 +83,12 @@ batch and so on, in the annotation files can also be present in the output table
 }
 \description{
 This function creates a data frame that contains the screening result from a whole drug screen experiment.
-Drugs and samples are annotated based on the drug annotation and sample annotation files.
+Drugs and samples are annotated based on the drug and sample annotation files.
 }
 \examples{
 rawFolder <- system.file('testData/rawData', package = 'DrugScreenExplorer')
 plateFile <- system.file('testData/plateAnno/plateAnno.tsv', package = 'DrugScreenExplorer')
-wellFile <- system.file('testData/wellAnno/wellAnno.tsv', package = 'DrugScreenExplorer')
+wellFile  <- system.file('testData/wellAnno/wellAnno.tsv', package = 'DrugScreenExplorer')
 screenData <- readScreen(rawDir = rawFolder, plateAnnotationFile = plateFile,
                         wellAnnotationFile = wellFile,
                         rowRange = c(3,18), colRange = 2,
