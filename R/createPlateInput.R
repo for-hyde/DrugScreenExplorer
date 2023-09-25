@@ -20,9 +20,12 @@
 #' # see vignette for more instructions
 
 createPlateInput <- function(rawDir, file, entries = c(), batchAsFolder = FALSE) {
+
   if (!batchAsFolder) {
+
     allFiles <- list.files(path = rawDir, recursive = TRUE)
     outTable <- tibble::tibble(fileName = basename(allFiles))
+
   } else {
     # raw data from different batches are stored in subfolders
     batches <- list.dirs(rawDir, full.names = FALSE)
@@ -33,7 +36,6 @@ createPlateInput <- function(rawDir, file, entries = c(), batchAsFolder = FALSE)
       tibble::tibble(fileName = allFiles, batch = batch)
     }) %>%
       dplyr::bind_rows()
-
   }
 
   # check for duplicated file names
@@ -47,3 +49,13 @@ createPlateInput <- function(rawDir, file, entries = c(), batchAsFolder = FALSE)
   readr::write_delim(outTable, file = file, delim = "\t")
 
 }
+
+
+
+
+
+
+
+
+
+

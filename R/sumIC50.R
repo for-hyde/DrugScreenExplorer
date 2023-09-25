@@ -35,7 +35,7 @@ sumIC50 <- function(formula, data = NULL, minConc, maxConc, n = 100, ...) {
     mm <- fitIC50(formula, data, ...)
 
     # integrate AUC
-    concSeq <- data.frame(conc = seq(minConc, maxConc, length.out = n))
+    concSeq   <- data.frame(conc = seq(minConc, maxConc, length.out = n))
     valueConc <- data.frame(viab = predict.fitIC50(mm, concSeq),
                             conc = concSeq[, 1])
     aucVal <- calcAUC(valueConc$viab, valueConc$conc)

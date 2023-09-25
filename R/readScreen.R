@@ -45,10 +45,13 @@
 #' \item{fileName}{input files names (without extension names) for the plates}
 #' \item{name}{drug name, if this column is present in the well annotation file}
 #' \item{concentration}{drug concentration, if this column is present in the well annotation file}
-#' \item{wellType}{the type of wells, can be either neg (negative controls), pos (positive controls) or sample (drug wells)}
-#' \item{normVal}{normalized viability based on control wells on the plate, if the normalization step is performed by setting \code{normalization = TRUE}}
-#' Depends on the user-specified plate and well annotations, other columns, such as sampleID, patientID,
-#' batch and so on, in the annotation files can also be present in the output table.
+#' \item{wellType}{the type of wells, can be either neg (negative controls),
+#' pos (positive controls) or sample (drug wells)}
+#' \item{normVal}{normalized viability based on control wells on the plate,
+#' if the normalization step is performed by setting \code{normalization = TRUE}}
+#' Depends on the user-specified plate and well annotations, other columns,
+#' such as sampleID, patientID, batch and so on, in the annotation files
+#' can also be present in the output table.
 #' @examples
 #' rawFolder <- system.file('testData/rawData', package = 'DrugScreenExplorer')
 #' plateFile <- system.file('testData/plateAnno/plateAnno.tsv', package = 'DrugScreenExplorer')
@@ -59,7 +62,6 @@
 #'                         sep = '[;\t]', commaAsDecimal = FALSE,
 #'                         negWell <- c('DMSO','PBS'), posWell = c())
 #' # see vignette for more instructions
-
 
 readScreen <- function(rawDir,
                        plateAnnotationFile,
@@ -89,6 +91,7 @@ readScreen <- function(rawDir,
     locale = locale(decimal_mark = deciMark),
     col_types = cols()
   )
+
   rawFileList <- sampleAnno$fileName
 
   # check if there are duplicated file names
@@ -115,7 +118,7 @@ readScreen <- function(rawDir,
   screenData <- left_join(screenData, sampleAnno, by = "fileName")
 
   # remove extensions in the file names
-  #screenData <- dplyr::mutate(screenData, fileName = tools::file_path_sans_ext(fileName))
+  # screenData <- dplyr::mutate(screenData, fileName = tools::file_path_sans_ext(fileName))
 
   # read drug annotation files
   drugAnno <- read_delim(
@@ -124,6 +127,10 @@ readScreen <- function(rawDir,
     locale = locale(decimal_mark = deciMark),
     col_types = cols()
   )
+
+  # if combination drug
+  if ("name1" %in% colnames(drugAnno))
+    drugAnno[,"combination"] <- paste0(drugAnno$name, "_", drugAnno$name1)
 
   # add drug annotation information
   if ("plateID" %in% colnames(drugAnno)) {
@@ -137,12 +144,29 @@ readScreen <- function(rawDir,
     stop("Overlap in postive and negative control well list")
   }
 
-  if ("name" %in% colnames(screenData)) {
-    screenData <- dplyr::mutate(screenData, wellType = ifelse(wellID %in% negWell | name %in% negWell, "neg", "sample")) %>%
-      dplyr::mutate(wellType = ifelse(wellID %in% posWell | name %in% posWell, "pos", wellType))
+  # Can I remove wellID here?
+
+  # Scenario for drug combination
+  if ("combination" %in% colnames(screenData)){
+
+    # Both name_name1 amd name1_name work
+    combs <- c(paste0(drugAnno$name, "_", drugAnno$name1),
+               paste0(drugAnno$name1, "_", drugAnno$name))
+
+    screenData <- dplyr::mutate(screenData,
+                                wellType = case_when(wellID %in% negWell | combs[1] %in% negWell | combs[2] %in% negWell ~ "neg",
+                                                     wellID %in% posWell | combs[1] %in% posWell | combs[2] %in% posWell ~ "pos",
+                                                     .default = "sample"))
+  } else if ("name" %in% colnames(screenData)) {
+    screenData <- dplyr::mutate(screenData,
+                                wellType = case_when(wellID %in% negWell | name %in% negWell ~ "neg",
+                                                     wellID %in% posWell | name %in% posWell ~ "pos",
+                                                     .default = "sample"))
   } else {
-    screenData <- dplyr::mutate(screenData, wellType = ifelse(wellID %in% negWell, "neg", "sample")) %>%
-      dplyr::mutate(wellType = ifelse(wellID %in% posWell, "pos", wellType))
+    screenData <- dplyr::mutate(screenData,
+                                wellType = case_when(wellID %in% negWell ~ "neg",
+                                                     wellID %in% posWell ~ "pos",
+                                                     .default = "sample"))
   }
 
   if (normalization) {
@@ -151,8 +175,7 @@ readScreen <- function(rawDir,
       screenData = screenData,
       method = method,
       discardLayer = discardLayer,
-      bySample = bySample
-      )
+      bySample = bySample)
   }
 
   if ("batch" %in% colnames(screenData)) {
@@ -167,7 +190,7 @@ readScreen <- function(rawDir,
 
   screenData <- ungroup(screenData)  #%>% mutate_if(is.character, factor)
 
-  #clean up file name
+  # clean up file name
   screenData <- screenData %>%
     dplyr::mutate(fileName = basename(fileName)) %>%
     dplyr::mutate(fileName = tools::file_path_sans_ext(fileName))

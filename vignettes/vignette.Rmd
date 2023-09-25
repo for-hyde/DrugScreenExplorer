@@ -75,9 +75,11 @@ createPlateInput(rawDir = rawFolder,
                  file = "plateAnno.csv",
                  entries = c("sampleID", "patientID"))
 ```
+
 An csv file named "plateAnno.csv" will be created and it has three columns: *fileName*, *sampleID*, and *patientID*. The *fileName* column is automatically filled based on the files in the raw data folder, while *sampleID* and *patientID* columns need to be filled manually. 
 
 If the text files containing the raw data are grouped in sub-folders, and you want the sub-folders to be considered as batches. The createPlateInput function can also generate the batch information automatically if the *batchAsFolder* is TRUE.
+
 ```{r, eval=FALSE}
 rawFolder <- system.file("testData/rawData", package = "DrugScreenExplorer")
 createPlateInput(rawDir = rawFolder,

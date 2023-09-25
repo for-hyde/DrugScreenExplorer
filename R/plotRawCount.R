@@ -22,8 +22,9 @@ plotRawCount <- function(screenData, topN = NULL, ifLog10 = FALSE) {
   # only plot top N plate or all plate?
   if (!is.null(topN)) {
     allNames <- unique(screenData$fileName)
-    plotTab <- dplyr::filter(screenData, fileName %in% allNames[seq_len(min(length(allNames),
-                                                                            topN))])
+    plotTab <- dplyr::filter(screenData,
+                             fileName %in% allNames[seq_len(min(length(allNames),
+                                                                topN))])
 
   } else {
     plotTab <- screenData
@@ -43,3 +44,6 @@ plotRawCount <- function(screenData, topN = NULL, ifLog10 = FALSE) {
     ylab(ifelse(ifLog10, "log10 (raw counts)", "raw counts"))
 
 }
+
+
+

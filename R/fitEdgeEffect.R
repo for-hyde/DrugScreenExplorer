@@ -1,3 +1,4 @@
+#'
 #' Fit a 2D surface to capture the incubation/edge effect on each plate
 #'
 #' This function fits a 2D surface using either loess (local regression) model or a 2D sigmod model

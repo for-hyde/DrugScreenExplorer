@@ -26,7 +26,9 @@
 #'
 #' # Please see the vignette for more information.
 
-estimateEdgeEffect <- function(screenData, nLayer = 1, onlyNeg = TRUE,
+estimateEdgeEffect <- function(screenData,
+                               nLayer = 1,
+                               onlyNeg = TRUE,
                                identifier = "fileName",
                                pdfName = NULL) {
 

@@ -30,8 +30,16 @@
 #' plotPlate(screenData_normalized, plotPlate = 'all', plotType = 'viability')
 #' # Please see the vignette for more information.
 
-plotPlate <- function(screenData, plotPlate = "all", plotType = "layout", ifCorrected = FALSE,
-                      limits = NULL, pdfName = NULL, ncol = 2, nrow = 3, width = 16, height = 16) {
+plotPlate <- function(screenData,
+                      plotPlate = "all",
+                      plotType = "layout",
+                      ifCorrected = FALSE,
+                      limits = NULL,
+                      pdfName = NULL,
+                      ncol = 2,
+                      nrow = 3,
+                      width = 16,
+                      height = 16) {
 
   # Get a list of plates for plotting, either all plates in the drug screen
   # Data or a user-specified list

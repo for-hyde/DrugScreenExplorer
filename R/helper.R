@@ -1,7 +1,11 @@
 # Some helper functions
 ## Function to read screen data from one plate
 
-readPlate <- function(plateFile, rowRange = c(3, 18), colRange = 2, sep = "[;\t]", commaAsDecimal = FALSE,
+readPlate <- function(plateFile,
+                      rowRange = c(3, 18),
+                      colRange = 2,
+                      sep = "[;\t]",
+                      commaAsDecimal = FALSE,
                       allowNA = FALSE) {
 
   if (grepl(",", sep) & commaAsDecimal)
