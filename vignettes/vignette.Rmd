@@ -1,21 +1,83 @@
 ---
 title: "Introduction to DrugScreenExplorer"
 author: "Junyan Lu"
-date: "`r doc_date()`"
+date: "`r format(Sys.time(), '%B %d, %Y')`"
+
 output:
-  BiocStyle::html_document:
-    toc_float: true
+  html_document:
+    fig_caption: yes
+    toc: yes
+    toc_depth: 3
+    number_sections: yes
+    fig_crop: no
+link-citations: yes
+header-includes:
+    - \usepackage{setspace}
+    - \doublespacing
+    
 vignette: >
   %\VignetteIndexEntry{"Introduction to DrugScreenExplorer"}
   %\VignetteEngine{knitr::rmarkdown}
   %\VignetteEncoding{UTF-8}
+  
 ---
+
+```{r include=FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+```{r setup, echo=FALSE}
+knitr::opts_chunk$set(
+	message = FALSE,
+	warning = FALSE,
+	tidy = TRUE,
+	fig.pos = "h"
+)
+options(width = 100)
+knitr::opts_chunk$set(tidy.opts=list(width.cutoff = 75))
+
+```
+
+```{r include=FALSE}
+# the code in this chunk enables us to truncate the print output for each
+# chunk using the `out.lines` option
+# save the built-in output hook
+hook_output <- knitr::knit_hooks$get("output")
+
+# set a new output hook to truncate text output
+knitr::knit_hooks$set(output = function(x, options) {
+  if (!is.null(n <- options$out.lines)) {
+    x <- xfun::split_lines(x)
+    if (length(x) > n) {
+        
+      # truncate the output
+      x <- c(head(x, n), "....\n")
+    }
+    x <- paste(x, collapse = "\n")
+  }
+  hook_output(x, options)
+})
+```
 
 # Getting started
 
-DrugScreenExplorer is an R package designed for streamlined processing, quality control and visualizing of high-throughput drug sensitivity screen data.
+*DrugScreenExplorer* is an R package designed for streamlined processing, quality control and visualizing of high-throughput drug sensitivity screen data. 
 
-```{r, message=FALSE, warning=FALSE}
+The package can achieve the following functions: 
+
+1, normalize the viability values   
+2, detect and adjust the edge effects    
+3, summarize drug effects using several indices, e.g., IC50 and AUC  
+4, generate a quality report of the screen data 
+5, using a shiny app to explore process data interactively  
+
+The package was original designed to proceed the single drug screening, but now extended to two-drug combinations.    
+
+
+```{r, message = FALSE, warning = FALSE}
 library(DrugScreenExplorer)
 library(tidyr)
 library(dplyr)
@@ -76,7 +138,7 @@ createPlateInput(rawDir = rawFolder,
                  entries = c("sampleID", "patientID"))
 ```
 
-An csv file named "plateAnno.csv" will be created and it has three columns: *fileName*, *sampleID*, and *patientID*. The *fileName* column is automatically filled based on the files in the raw data folder, while *sampleID* and *patientID* columns need to be filled manually. 
+An csv file named "plateAnno.csv" will be created in the current working directory. The profile has three columns: *fileName*, *sampleID*, and *patientID*.  *fileName* column is automatically filled based on the files in the raw data folder, while *sampleID* and *patientID* columns need to be filled manually. 
 
 If the text files containing the raw data are grouped in sub-folders, and you want the sub-folders to be considered as batches. The createPlateInput function can also generate the batch information automatically if the *batchAsFolder* is TRUE.
 

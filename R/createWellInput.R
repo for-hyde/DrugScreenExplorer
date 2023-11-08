@@ -26,8 +26,8 @@
 
 
 createWellInput <- function(file, colNum, rowNum,
-                            entries = c("name", "concentration",
-                                        "name1", "concentration1"),
+                            entries = c("drug", "concentration",
+                                        "drug2", "concentration2"),
                             platePerSample = 1) {
 
   rowID <- genRowIDs(rowNum)

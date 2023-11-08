@@ -221,10 +221,11 @@ calcAUC <- function(value, conc, viabCut = NULL) {
   } else {
     areaTotal <- 0
     for (i in seq(nrow(valueConc) - 1)) {
-      areaEach  <- (valueConc$viab[i] + valueConc$viab[i + 1]) * log(valueConc$conc[i + 1]/valueConc$conc[i]) * 0.5
+      areaEach  <- (valueConc$viab[i] + valueConc$viab[i + 1]) *
+        log(valueConc$conc[i + 1]/valueConc$conc[i]) * 0.5
       areaTotal <- areaTotal + areaEach
     }
-    aucRatio <- areaTotal / log(valueConc[nrow(valueConc), ]$conc/valueConc[1, ]$conc)
+    aucRatio <- areaTotal / log(valueConc[nrow(valueConc), ]$conc / valueConc[1, ]$conc)
     return(aucRatio)
   }
 }
@@ -434,5 +435,6 @@ plotEdgeEffect <- function(matPlate, plateList, limits) {
 
   return(plotList)
 }
+
 
 

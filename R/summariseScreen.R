@@ -15,6 +15,10 @@
 #'  Then, it summarizes the drug effect using the four parameters (upper limit, lower limit, slope, and IC50/EC50)
 #'  and area under the sigmoid curve.
 #'  You can use multiple methods simultaneously by specifying a vector of method names.
+#'@param minConc, lower bound of concentrations for the integration of area under curve.
+#'used for method = "IC50". See \code{sumIC50()}.
+#'@param maxConc, upper bound of concentrations for the integration of area under curve.
+# used for method = "IC50". See \code{sumIC50()}.
 #' @export
 #' @import dr4pl tidyr
 #'
@@ -48,16 +52,13 @@
 #'
 #' # Please see the vignette for more information.
 
-summariseScreen <- function(screenData, method = c("average", "AUC", "IC50")) {
+summariseScreen <- function(screenData,
+                            method = c("average", "AUC", "IC50"),
+                            minConc = 0, maxConc = 15){
 
-  # Check if necessary columns are present in the input data
-  if (!all(c("name", "concentration", "sampleID") %in% colnames(screenData))) {
-    stop("No information of name, concentration or sampleID found")
-  }
-
-  # Check if the 'normVal' column is present for plate normalization
-  if (!"normVal" %in% colnames(screenData)) {
-    stop("Column 'normVal' not found. Plate normalization should be performed first")
+  # check if necessary columns are present in the input data
+  if (!all(c("drug", "concentration", "sampleID") %in% colnames(screenData))) {
+    stop("No information of drug name, concentration or sampleID found")
   }
 
   # Check if the 'normVal.cor' column is present
@@ -68,31 +69,320 @@ summariseScreen <- function(screenData, method = c("average", "AUC", "IC50")) {
 
   # get the mean by concentration
   # drug combinations or single drug
-  if ("combination" %in% colnames(subData)){
-    subData <- group_by(subData, sampleID, combination, concentration)
-  } else {
-    subData <- group_by(subData, sampleID, name, concentration)
-  }
-
   if (ifCor) {
-    # mean of normVal and normVal.cor
-    subData <- subData %>%
-      dplyr::summarise(viab = mean(normVal, na.rm = TRUE),
-                       viab.cor = mean(normVal.cor, na.rm = TRUE)) %>%
+    subData <- group_by(subData, sampleID, drug, concentration) %>%
+      summarise(viab = mean(normVal, na.rm = TRUE),
+                viab.cor = mean(normVal.cor, na.rm = TRUE)) %>%
       ungroup()
   } else {
-    subData <- subData %>%
-      dplyr::summarise(viab = mean(normVal, na.rm = TRUE)) %>%
+    subData <- group_by(subData, sampleID, drug, concentration) %>%
+      summarise(viab = mean(normVal, na.rm = TRUE)) %>%
       ungroup()
   }
 
   # summarize average, IC50 and AUC
   # drug combinations or single drug
-  if ("combination" %in% colnames(subData)){
-    grouped_subData <- group_by(subData, sampleID, combination)
-  } else {
-    grouped_subData <- group_by(subData, sampleID, name)
+  grouped_subData <- group_by(subData, sampleID, drug)
+
+  # "average" in method
+  if ("average" %in% method) {
+    # if normVal.cor is available
+    if (ifCor) {
+      sumTab <- grouped_subData %>%
+        dplyr::summarise(meanViab = mean(viab, na.rm = TRUE),
+                         meanViab.cor = mean(viab.cor)) %>%
+        ungroup()
+    } else {
+      sumTab <- grouped_subData %>%
+        dplyr::summarise(meanViab = mean(viab, na.rm = TRUE)) %>%
+        ungroup()
+    }
+
+    # Remove existing 'meanViab' column if it already exists in the input data
+    if ("meanViab" %in% colnames(screenData))
+      screenData[["meanViab"]] <- NULL
+
+    # Join the summarized data back to the original data
+    screenData <- left_join(screenData, sumTab,
+                            by = c("sampleID", "drug"))
   }
+
+  # "AUC" in method
+  if ("AUC" %in% method) {
+    if (ifCor) {
+      sumTab <- grouped_subData %>%
+        dplyr::summarise(AUC = calcAUC(viab, concentration),
+                         AUC.cor = calcAUC(viab.cor, concentration)) %>%
+        ungroup()
+    } else {
+      sumTab <- grouped_subData %>%
+        dplyr::summarise(AUC = calcAUC(viab, concentration)) %>%
+        ungroup()
+    }
+
+    # Remove existing 'AUC' column if it already exists in the input data
+    if ("AUC" %in% colnames(screenData))
+      screenData[["AUC"]] <- NULL
+
+    screenData <- left_join(screenData, sumTab,
+                            by = c("sampleID", "drug"))
+  }
+
+  # "IC50" in method
+  if ("IC50" %in% method) {
+    # Group and nest the data for IC50 calculation
+    sumTab <- grouped_subData %>%
+      nest() %>%
+      dplyr::mutate(model = purrr::map(data, ~ sumIC50(viab ~ concentration,
+                                                       data = .,
+                                                       minConc = 0,
+                                                       maxConc = 15))) %>%
+      tidyr::unnest("model") %>%
+      ungroup()
+
+    sumTab$data <- NULL
+
+    if (ifCor) {
+      sumTab.cor <- grouped_subData %>%
+        nest() %>%
+        dplyr::mutate(model = purrr::map(data, ~ sumIC50(viab.cor ~ concentration,
+                                                         data = .,
+                                                         minConc = 0,
+                                                         maxConc = 15))) %>%
+        tidyr::unnest("model") %>%
+        ungroup()
+
+      sumTab.cor$data <- NULL
+      newColName <- colnames(sumTab.cor)
+      newColName[!newColName %in% c("sampleID", "drug")] <-
+        paste0(newColName[!newColName %in% c("sampleID", "drug")], ".cor")
+
+      colnames(sumTab.cor) <- newColName
+      sumTab <- left_join(sumTab, sumTab.cor, by = c("sampleID", "drug"))
+    }
+
+    for (colN in c("UpperLimit", "IC50", "Slope", "LowerLimit", "AUC")) {
+      if (colN %in% colnames(screenData))
+        screenData[[colN]] <- NULL
+    }
+
+    # Join the summarized IC50 data back to the original data
+    screenData <- left_join(screenData, sumTab, by = c("sampleID", "drug"))
+  }
+
+  return(screenData)
+}
+
+
+# transform to single drug screen, analysis both drug
+# retain drug2 in negative control or concentration is 0
+
+
+summariseScreenCombination <- function(screenData,
+                                       method = c("average", "AUC", "IC50"),
+                                       minConc = 0, maxConc = 15) {
+
+
+  # step1. bliss score concentration, sample drug
+  # step2. bliss syn bliss antagonistic
+
+  # transform to single drug screen
+  # no tidyverse
+
+  # check if the 'normVal' column is present for plate normalization
+  if (!"normVal" %in% colnames(screenData)) {
+    stop("Column 'normVal' not found.
+         Plate normalization should be performed first")
+  }
+
+  # check if the 'normVal.cor' column is present
+  ifCor <- "normVal.cor" %in% colnames(screenData)
+
+  # only summarize the non-control wells
+  subData <- screenData[screenData$wellType %in% "sample", ]
+
+  # get the mean by concentration
+  # drug combinations or single drug
+  if (ifCor) {
+    subData <- group_by(subData, sampleID, drug, drug2,
+                        concentration, concentration2) %>%
+      summarise(viab = mean(normVal, na.rm = TRUE),
+                viab.cor = mean(normVal.cor, na.rm = TRUE)) %>%
+      ungroup()
+  } else {
+    subData <- group_by(subData, sampleID, drug, drug2,
+                        concentration, concentration2) %>%
+      summarise(viab = mean(normVal, na.rm = TRUE)) %>%
+      ungroup()
+  }
+
+  # summarize average, IC50 and AUC
+  # drug combinations or single drug
+
+  # "average" in method
+  if ("average" %in% method) {
+    if (ifCor) {
+      sumTab <- group_by(subData, sampleID, drug, drug2) %>%
+        dplyr::summarise(meanViab = mean(viab, na.rm = TRUE),
+                         meanViab.cor = mean(viab.cor)) %>%
+        ungroup()
+    } else {
+      sumTab <- group_by(subData, sampleID, drug, drug2)  %>%
+        dplyr::summarise(meanViab = mean(viab, na.rm = TRUE)) %>%
+        ungroup()
+    }
+
+    # Remove existing 'meanViab' column if it already exists in the input data
+    if ("meanViab" %in% colnames(screenData))
+      screenData[["meanViab"]] <- NULL
+
+    # Join the summarized data back to the original data
+    screenData <- left_join(screenData, sumTab,
+                            by = c("sampleID", "drug", "drug2"))
+  }
+
+  # AUC in method
+  if ("AUC" %in% method){
+    if (ifCor) {
+      # calcualte the AUC for two concentrations independently
+      sumTab <- group_by(subData, sampleID, drug) %>%
+        dplyr::summarise(AUC = calcAUC(viab, concentration),
+                         AUC.cor = calcAUC(viab.cor, concentration)) %>%
+        ungroup() %>%
+        bind_cols(
+          group_by(subData, sampleID, drug2) %>%
+            dplyr::summarise(AUC2 = calcAUC(viab, concentration2),
+                             AUC.cor2 = calcAUC(viab.cor, concentration2)) %>%
+            ungroup() %>%
+            select(AUC2, AUC.cor2))
+
+    } else {
+      sumTab <- group_by(subData, sampleID, drug) %>%
+        dplyr::summarise(AUC = calcAUC(viab, concentration)) %>%
+        ungroup() %>%
+        bind_cols(
+          group_by(subData, sampleID, drug2) %>%
+            dplyr::summarise(AUC2 = calcAUC(viab, concentration2)) %>%
+            ungroup() %>%
+            select(AUC2))
+    }
+
+    # Remove existing 'AUC' column if it already exists in the input data
+    if (any(c("AUC", "AUC2") %in% colnames(screenData))) {
+
+      warning(paste0(intersect(c("AUC", "AUC2"),
+                               colnames(screenData)), collapse = ","),
+              " in original input data will be replaced by newly calcualted AUC/AUC2")
+
+      screenData[,c("AUC", "AUC2")] <- NULL
+    }
+
+    # Join the summarized data back to the original data
+    screenData <- left_join(screenData, sumTab,
+                            by = c("sampleID", "drug", "drug2"))
+  }
+
+  # IC50, marginal IC50
+  if ("IC50" %in% method) {
+
+    # Group and nest the data for IC50 calculation
+    sumTab <- group_by(subData, sampleID, drug) %>%
+      nest() %>%
+      dplyr::mutate(model = purrr::map(data,
+                                       ~ sumIC50(viab ~ concentration, data = .,
+                                                 minConc = minConc,
+                                                 maxConc = maxConc))) %>%
+      tidyr::unnest("model") %>%
+      ungroup() %>%
+      bind_cols(
+        group_by(subData, sampleID, drug2) %>%
+          nest() %>%
+          dplyr::mutate(model2 = purrr::map(data,
+                                            ~ sumIC50(viab ~ concentration2,
+                                                      data = .,
+                                                      minConc = minConc,
+                                                      maxConc = maxConc))) %>%
+          tidyr::unnest("model2") %>%
+          ungroup() %>%
+          dplyr::select(model2)
+      )
+
+    sumTab$data <- NULL
+
+    if (ifCor) {
+
+      sumTab.cor <- group_by(subData, sampleID, drug) %>%
+        nest() %>%
+        dplyr::mutate(model = purrr::map(data,
+                                         ~ sumIC50(viab.cor ~ concentration,
+                                                   data = .,
+                                                   minConc = minConc,
+                                                   maxConc = maxConc))) %>%
+        tidyr::unnest("model") %>%
+        ungroup() %>%
+        bind_cols(
+          group_by(subData, sampleID, drug2) %>%
+            nest() %>%
+            dplyr::mutate(model2 = purrr::map(data,
+                                              ~ sumIC50(viab.cor ~ concentration2,
+                                                        data = .,
+                                                        minConc = minConc,
+                                                        maxConc = maxConc))) %>%
+            tidyr::unnest("model2") %>%
+            ungroup() %>%
+            dplyr::select(model2)
+        )
+
+      sumTab.cor$data <- NULL
+      newColName <- colnames(sumTab.cor)
+
+      newColName[!newColName %in% c("sampleID", "drug", "drug2")] <-
+        paste0(newColName[!newColName %in% c("sampleID", "drug", "drug2")], ".cor")
+
+      colnames(sumTab.cor) <- newColName
+      sumTab <- left_join(sumTab, sumTab.cor, by = c("sampleID", "drug", "drug2"))
+
+    for (colN in c("UpperLimit", "IC50", "Slope", "LowerLimit", "AUC")) {
+      if (colN %in% colnames(screenData))
+        screenData[[colN]] <- NULL
+    }
+
+    # Join the summarized IC50 data back to the original data
+    screenData <- left_join(screenData, sumTab, by = c("sampleID", "drug", "drug2"))
+    }
+  }
+  return(screenData)
+}
+
+
+summariseScreenSingleDrug <- function(screenData,
+                                      method = c("average", "AUC", "IC50")) {
+
+  # transform to single drug screen, analysis both drug
+  # retain drug2 in negative control or concentration is 0
+
+  # Check if the 'normVal.cor' column is present
+  ifCor <- "normVal.cor" %in% colnames(screenData)
+
+  # Only summarize the non-control wells
+  subData <- screenData[screenData$wellType %in% "sample", ]
+
+  # get the mean by concentration
+  # drug combinations or single drug
+  if (ifCor) {
+    subData <- group_by(subData, sampleID, drug, concentration) %>%
+      summarise(viab = mean(normVal, na.rm = TRUE),
+                viab.cor = mean(normVal.cor, na.rm = TRUE)) %>%
+      ungroup()
+  } else {
+    subData <- group_by(subData, sampleID, drug, concentration) %>%
+      summarise(viab = mean(normVal, na.rm = TRUE)) %>%
+      ungroup()
+  }
+
+  # summarize average, IC50 and AUC
+  # drug combinations or single drug
+  grouped_subData <- group_by(subData, sampleID, drug)
 
   # "average" in method
   if ("average" %in% method) {
@@ -112,17 +402,17 @@ summariseScreen <- function(screenData, method = c("average", "AUC", "IC50")) {
       screenData[["meanViab"]] <- NULL
 
     # Join the summarized data back to the original data
-    screenData <- left_join(screenData, sumTab, by = c("sampleID", "name"))
+    screenData <- left_join(screenData, sumTab,
+                            by = c("sampleID", "drug"))
   }
 
-  #
+  # "AUC" in method
   if ("AUC" %in% method) {
     if (ifCor) {
       sumTab <- grouped_subData %>%
         dplyr::summarise(AUC = calcAUC(viab, concentration),
                          AUC.cor = calcAUC(viab.cor, concentration)) %>%
         ungroup()
-
     } else {
       sumTab <- grouped_subData %>%
         dplyr::summarise(AUC = calcAUC(viab, concentration)) %>%
@@ -133,36 +423,41 @@ summariseScreen <- function(screenData, method = c("average", "AUC", "IC50")) {
     if ("AUC" %in% colnames(screenData))
       screenData[["AUC"]] <- NULL
 
-    # Join the summarized data back to the original data
-    screenData <- left_join(screenData, sumTab, by = c("sampleID", "name"))
+    screenData <- left_join(screenData, sumTab,
+                            by = c("sampleID", "drug"))
   }
 
+  # "IC50" in method
   if ("IC50" %in% method) {
-
     # Group and nest the data for IC50 calculation
     sumTab <- grouped_subData %>%
       nest() %>%
-      dplyr::mutate(model = purrr::map(data, ~ sumIC50(viab ~ concentration, .))) %>%
+      dplyr::mutate(model = purrr::map(data, ~ sumIC50(viab ~ concentration,
+                                                       data = .,
+                                                       minConc = 0,
+                                                       maxConc = 15))) %>%
       tidyr::unnest("model") %>%
       ungroup()
 
     sumTab$data <- NULL
 
     if (ifCor) {
-
       sumTab.cor <- grouped_subData %>%
         nest() %>%
-        dplyr::mutate(model = purrr::map(data, ~ sumIC50(viab.cor ~ concentration, .))) %>%
+        dplyr::mutate(model = purrr::map(data, ~ sumIC50(viab.cor ~ concentration,
+                                                         data = .,
+                                                         minConc = 0,
+                                                         maxConc = 15))) %>%
         tidyr::unnest("model") %>%
         ungroup()
 
       sumTab.cor$data <- NULL
       newColName <- colnames(sumTab.cor)
-      newColName[!newColName %in% c("sampleID", "name")] <-
-        paste0(newColName[!newColName %in% c("sampleID", "name")], ".cor")
+      newColName[!newColName %in% c("sampleID", "drug")] <-
+        paste0(newColName[!newColName %in% c("sampleID", "drug")], ".cor")
 
       colnames(sumTab.cor) <- newColName
-      sumTab <- left_join(sumTab, sumTab.cor, by = c("sampleID", "name"))
+      sumTab <- left_join(sumTab, sumTab.cor, by = c("sampleID", "drug"))
     }
 
     for (colN in c("UpperLimit", "IC50", "Slope", "LowerLimit", "AUC")) {
@@ -171,28 +466,11 @@ summariseScreen <- function(screenData, method = c("average", "AUC", "IC50")) {
     }
 
     # Join the summarized IC50 data back to the original data
-    screenData <- left_join(screenData, sumTab, by = c("sampleID", "name"))
+    screenData <- left_join(screenData, sumTab, by = c("sampleID", "drug"))
   }
 
   return(screenData)
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 

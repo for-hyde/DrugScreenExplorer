@@ -60,8 +60,23 @@
 #'                         wellAnnotationFile = wellFile,
 #'                         rowRange = c(3,18), colRange = 2,
 #'                         sep = '[;\t]', commaAsDecimal = FALSE,
-#'                         negWell <- c('DMSO','PBS'), posWell = c())
-#' # see vignette for more instructions
+#'                         negWell = c('DMSO','PBS'), posWell = c())
+#'
+#' # Example with combined data
+#' rawFolder <- system.file('testData/rawDataCombine', package = 'DrugScreenExplorer')
+#' plateFile <- system.file('testData/plateAnnoCombine/plateAnnoCombine.tsv',
+#'                          package = 'DrugScreenExplorer')
+#' wellFile  <- system.file('testData/wellAnnoCombine/wellAnnoCombine.tsv',
+#'                          package = 'DrugScreenExplorer')
+#' screenData <- readScreen(rawDir = rawFolder, plateAnnotationFile = plateFile,
+#'                          wellAnnotationFile = wellFile,
+#'                          rowRange = c(7, 22),
+#'                          colRange = 2,
+#'                          sep = ',', commaAsDecimal = FALSE,
+#'                          negWell = c("DMSO_DMSO"),
+#'                          posWell = c())
+#' see vignette for more instructions
+
 
 readScreen <- function(rawDir,
                        plateAnnotationFile,
@@ -103,9 +118,10 @@ readScreen <- function(rawDir,
   # read screening data plate by plate
   screenData <- lapply(rawFileList, function(eachFile) {
     plateData <- tryCatch({
-      readPlate(plateFile = paste0(rawDir,"/",eachFile),
+      readPlate(plateFile = paste0(rawDir, "/", eachFile),
                 rowRange = rowRange,
-                colRange = colRange, sep = sep,
+                colRange = colRange,
+                sep = sep,
                 commaAsDecimal = commaAsDecimal,
                 allowNA = allowNA) %>%
         dplyr::mutate(fileName = eachFile)
@@ -128,9 +144,38 @@ readScreen <- function(rawDir,
     col_types = cols()
   )
 
-  # if combination drug
-  if ("name1" %in% colnames(drugAnno))
-    drugAnno[,"combination"] <- paste0(drugAnno$name, "_", drugAnno$name1)
+  # detect two-drug combination
+  # select colnames containing "drug1", but not "drug1a"
+  ind <- stringr::str_detect(colnames(screenData), "^drug\\d$")
+
+  # only two drug combination allowed
+  if (sum(ind) > 1)
+    stop("More than two drugs are detected:
+         a maximum two-drug combination is allowed.")
+
+  # if the second drug is not named as "drug2", rename it to drug2
+  if (sum(ind) == 1 & !"drug2" %in% colnames(screenData)) {
+    warning("The second drug is renamed as 'drug2'. ")
+    colnames(screenData)[ind] <- "drug2"
+  }
+
+  # select the second concentration in a similar format "^concentration\\d$
+  ind <- stringr::str_detect(colnames(screenData), "^concentration\\d$")
+
+  # only two drug combination allowed
+  if (sum(ind) > 1)
+    stop("More than two concentrations are detected:
+         a maximum two-drug combination is allowed.")
+
+  if (sum(ind) == 1 & !"concentration2" %in% colnames(screenData)) {
+    warning("The concentration for the second drug is renamed as 'concentration2'.")
+    colnames(screenData) <- "concentration2"
+  }
+
+  #-
+  # # if combination drug
+  # if ("drug2" %in% colnames(drugAnno))
+  #   drugAnno[,"combination"] <- paste0(drugAnno$drug, "_", drugAnno$drug2)
 
   # add drug annotation information
   if ("plateID" %in% colnames(drugAnno)) {
@@ -147,20 +192,20 @@ readScreen <- function(rawDir,
   # Can I remove wellID here?
 
   # Scenario for drug combination
-  if ("combination" %in% colnames(screenData)){
+  if ("drug2" %in% colnames(screenData)){
 
-    # Both name_name1 amd name1_name work
-    combs <- c(paste0(drugAnno$name, "_", drugAnno$name1),
-               paste0(drugAnno$name1, "_", drugAnno$name))
+    # Both drug_drug2 amd drug2_drug work
+    combs <- cbind(paste0(drugAnno$drug, "_", drugAnno$drug2),
+                   paste0(drugAnno$drug2, "_", drugAnno$drug))
 
     screenData <- dplyr::mutate(screenData,
-                                wellType = case_when(wellID %in% negWell | combs[1] %in% negWell | combs[2] %in% negWell ~ "neg",
-                                                     wellID %in% posWell | combs[1] %in% posWell | combs[2] %in% posWell ~ "pos",
+                                wellType = case_when((wellID %in% negWell | combs[,1] %in% negWell | combs[,2] %in% negWell) ~ "neg",
+                                                     (wellID %in% posWell | combs[,1] %in% posWell | combs[,2] %in% posWell) ~ "pos",
                                                      .default = "sample"))
-  } else if ("name" %in% colnames(screenData)) {
+  } else if ("drug" %in% colnames(screenData)) {
     screenData <- dplyr::mutate(screenData,
-                                wellType = case_when(wellID %in% negWell | name %in% negWell ~ "neg",
-                                                     wellID %in% posWell | name %in% posWell ~ "pos",
+                                wellType = case_when(wellID %in% negWell | drug %in% negWell ~ "neg",
+                                                     wellID %in% posWell | drug %in% posWell ~ "pos",
                                                      .default = "sample"))
   } else {
     screenData <- dplyr::mutate(screenData,
@@ -183,9 +228,13 @@ readScreen <- function(rawDir,
     screenData$batch <- factor(screenData$batch)
   }
 
+  # transfer concentration to numeric values
   if ("concentration" %in% colnames(screenData)) {
     # concentration as numeric
     screenData$concentration <- as.numeric(as.character(screenData$concentration))
+    if ("concentration2" %in% colnames(screenData)){
+      screenData$concentration2 <- as.numeric(as.character(screenData$concentration2))
+    }
   }
 
   screenData <- ungroup(screenData)  #%>% mutate_if(is.character, factor)
