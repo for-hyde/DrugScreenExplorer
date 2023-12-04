@@ -42,11 +42,11 @@
 #'
 #' Please see the vignette for more information.
 
-library(dplyr)
-data(screenData_combine_normalized)
-summariseScreenCombination(screenData_combine_normalized,
-                           negDrug = "DMSO",
-                           method = "bayesynergy")
+# library(dplyr)
+# data(screenData_combine_normalized)
+# summariseScreenCombination(screenData_combine_normalized,
+#                            negDrug = "DMSO",
+#                            method  = "bayesynergy")
 
 
 summariseScreenCombination <- function(screenData,
@@ -54,7 +54,6 @@ summariseScreenCombination <- function(screenData,
                                        method = c("bliss", "bayesynergy")) {
 
   # transform to single drug screen
-  # no tidyverse
 
   # check if the 'normVal' column is present for plate normalization
   if (!"normVal" %in% colnames(screenData)) {
