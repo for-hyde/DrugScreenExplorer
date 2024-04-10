@@ -58,6 +58,23 @@ readPlate <- function(plateFile,
   return(df)
 }
 
+#
+
+# comb2single <- function(screenData,
+#                         negDrug = c("DMSO"),
+#                         method = c("average", "AUC", "IC50")) {
+#
+#   # more check
+#   singleDrug <- filter(screenData,
+#                        (drug %in% negDrug) + (drug2 %in% negDrug) == 1) %>%
+#     mutate(drug = ifelse(drug %in% negDrug, drug2, drug),
+#            concentration = ifelse(drug %in% negDrug, concentration2,
+#                                   concentration)) %>%
+#     select(-c("drug2", "concentration2"))
+#
+#   summariseScreen(singleDrug, method = c("average", "AUC", "IC50"))
+# }
+
 
 ## Function to make pdf for a list of ggplot objects
 makepdf <- function(x, name, ncol = 3, nrow = 2, width = 20, height = 12) {

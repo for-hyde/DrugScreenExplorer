@@ -1,7 +1,6 @@
 s <- dir("../../R/")
 sapply(paste0("../../R/", s), source)
 
-
 # prepare expected data for unit testing
 
 # # Unit test for readScreen function
@@ -108,5 +107,37 @@ sapply(paste0("../../R/", s), source)
 # save(screenSub, sumData_average, sumData_AUC, screenSub_edgeCorr, sumData_AUC_corr, sumData_IC50,
 #      tabDose1, tabDose2, fitRes1, fitRes2, file = "testData/expectedOutput/summarisedData.RData")
 #
-# #-
 #
+# get expect results for summariseScreenCombination function
+
+#
+# screenDataCombine <- readScreen(rawDir = "testData/rawDataCombine/",
+#                                 plateAnnotationFile = "testData/plateAnnoCombine/plateAnnoCombine.tsv",
+#                                 wellAnnotationFile = "testData/wellAnnoCombine/wellAnnoCombine.tsv",
+#                                 rowRange = c(7,22),
+#                                 colRange = 2,
+#                                 sep = ",",
+#                                 negWell <- c("DMSO_DMSO"),
+#                                 posWell = c(),
+#                                 normalization = T)
+#
+#
+# sumData_bliss <- summariseScreenCombination(screenDataCombine,
+#                                             negDrug = "DMSO",
+#                                             method = "bliss")
+#
+# sumData_bayesynergy <- summariseScreenCombination(screenDataCombine,
+#                                                   negDrug = "DMSO",
+#                                                   method = "bayesynergy")
+#
+# save(sumData_bliss, sumData_bayesynergy,
+#      file = "testData/expectedOutput/summarisedDataCombine.RData")
+#
+#
+#
+#
+#
+
+
+
+

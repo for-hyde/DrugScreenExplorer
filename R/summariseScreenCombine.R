@@ -23,11 +23,11 @@
 #' @return
 #' The function returns a data frame.
 #'
-#'  If \code{method = "bliss"}, the function returns the pointwise combination
-#'  index (CI) and log (CI), indicating the synergy or antagonism effects.
+#' If \code{method = "bliss"}, the function returns the pointwise combination
+#' index (CI) and log (CI), indicating the synergy or antagonism effects.
 #'
-#'  If \code{method = “bayesynergy”}, the function returns the synergy and
-#'  antagonism scores for drug combinations.
+#' If \code{method = “bayesynergy”}, the function returns the synergy and
+#' antagonism scores for drug combinations.
 #'
 #' If a column that contains the edge/incubation effect corrected viability values
 #' is present in the input data frame, the above columns with a suffix \code{.cor},
@@ -41,13 +41,6 @@
 #'                            method = "bliss")
 #'
 #' Please see the vignette for more information.
-
-# library(dplyr)
-# data(screenData_combine_normalized)
-# summariseScreenCombination(screenData_combine_normalized,
-#                            negDrug = "DMSO",
-#                            method  = "bayesynergy")
-
 
 summariseScreenCombination <- function(screenData,
                                        negDrug = c("DMSO"),
@@ -66,7 +59,6 @@ summariseScreenCombination <- function(screenData,
 
   # only summarize the non-control wells
   subData <- dplyr::filter(screenData, wellType %in% "sample")
-
   method <- match.arg(method, c("bliss", "bayesynergy"))
 
   # Using bliss
@@ -75,26 +67,26 @@ summariseScreenCombination <- function(screenData,
     if (!ifCor) {
 
       comTab <- filter(subData, !drug %in% negDrug, !drug2 %in% negDrug) %>%
-        select(cellLine, drug, concentration, drug2, concentration2, normVal) %>%
+        select(sampleID, drug, concentration, drug2, concentration2, normVal) %>%
         dplyr::rename(viabObs = normVal) %>%
-        distinct(cellLine, drug, concentration, drug2, concentration2, .keep_all = TRUE)
+        distinct(sampleID, drug, concentration, drug2, concentration2, .keep_all = TRUE)
 
       # drug
       drugTab <- filter(subData, drug != negDrug, drug2 == negDrug) %>%
-        select(cellLine, drug, concentration, normVal) %>%
+        select(sampleID, drug, concentration, normVal) %>%
         dplyr::rename(viab = normVal) %>%
-        distinct(cellLine, drug, concentration, .keep_all = TRUE)
+        distinct(sampleID, drug, concentration, .keep_all = TRUE)
 
       # drug2
       drug2Tab <- filter(subData, drug == negDrug, drug2 != negDrug) %>%
-        select(cellLine, drug2, concentration2, normVal) %>%
+        select(sampleID, drug2, concentration2, normVal) %>%
         dplyr::rename(viab2 = normVal) %>%
-        distinct(cellLine, drug2, concentration2, .keep_all = TRUE)
+        distinct(sampleID, drug2, concentration2, .keep_all = TRUE)
 
       # get combination index (CI) and Logarithm of Combination Index (logCI)
       synTab <- comTab %>%
-        left_join(drugTab, by = c("cellLine", "drug", "concentration")) %>%
-        left_join(drug2Tab, by = c("cellLine", "drug2", "concentration2")) %>%
+        left_join(drugTab, by = c("sampleID", "drug", "concentration")) %>%
+        left_join(drug2Tab, by = c("sampleID", "drug2", "concentration2")) %>%
         mutate(viabExp = 1 - viab * viab2) %>%
         mutate(CI = viabObs - viabExp,
                logCI = log10(viabObs / viabExp))
@@ -104,27 +96,27 @@ summariseScreenCombination <- function(screenData,
     if (ifCor) {
 
       comTab <- filter(subData, !drug %in% negDrug, !drug2 %in% negDrug) %>%
-        select(cellLine, drug, concentration, drug2, concentration2,
+        select(sampleID, drug, concentration, drug2, concentration2,
                normVal, normVal.cor) %>%
         dplyr::rename(viabObs = normVal, viabObs.cor = normVal.cor) %>%
-        distinct(cellLine, drug, concentration, drug2, concentration2, .keep_all = TRUE)
+        distinct(sampleID, drug, concentration, drug2, concentration2, .keep_all = TRUE)
 
       # drug
       drugTab <- filter(subData, drug != negDrug, drug2 == negDrug) %>%
-        select(cellLine, drug, concentration, normVal, normVal.cor) %>%
+        select(sampleID, drug, concentration, normVal, normVal.cor) %>%
         dplyr::rename(viab = normVal, viab.cor = normVal.cor) %>%
-        distinct(cellLine, drug, concentration, .keep_all = TRUE)
+        distinct(sampleID, drug, concentration, .keep_all = TRUE)
 
       # drug2
       drug2Tab <- filter(subData, drug == negDrug, drug2 != negDrug) %>%
-        select(cellLine, drug2, concentration2, normVal, normVal.cor) %>%
+        select(sampleID, drug2, concentration2, normVal, normVal.cor) %>%
         dplyr::rename(viab2 = normVal, viab2.cor = normVal.cor) %>%
-        distinct(cellLine, drug2, concentration2, .keep_all = TRUE)
+        distinct(sampleID, drug2, concentration2, .keep_all = TRUE)
 
       # get combination index (CI) and Logarithm of Combination Index (logCI)
       synTab <- comTab %>%
-        left_join(drugTab, by = c("cellLine", "drug", "concentration")) %>%
-        left_join(drug2Tab, by = c("cellLine", "drug2", "concentration2")) %>%
+        left_join(drugTab, by = c("sampleID", "drug", "concentration")) %>%
+        left_join(drug2Tab, by = c("sampleID", "drug2", "concentration2")) %>%
         mutate(viabExp = 1 - viab * viab2,
                viabExp.cor = 1 - viab.cor * viab2.cor) %>%
         mutate(CI = viabObs - viabExp,
@@ -139,17 +131,17 @@ summariseScreenCombination <- function(screenData,
 
   if (method == "bayesynergy") {
 
-    allPair <- distinct(subData, cellLine, drug, drug2) %>%
+    allPair <- distinct(subData, sampleID, drug, drug2) %>%
       filter((!drug %in% negDrug) & (!drug2 %in% negDrug))
 
     allInput <- list()
     for(i in seq_len(nrow(allPair))){
 
       subIndex <- unlist(allPair[i, ])
-      subTab <- dplyr::filter(subData, cellLine == subIndex[1]) %>%
+      subTab <- dplyr::filter(subData, sampleID == subIndex[1]) %>%
         filter(drug %in% c(negDrug, subIndex[2]) &
                  drug2 %in% c(negDrug, subIndex[3])) %>%
-        select(cellLine, drug, drug2, concentration, concentration2, normVal)
+        select(sampleID, drug, drug2, concentration, concentration2, normVal)
 
       # inputs for synergyscreen function
       allInput[[i]] <- list(y = as.matrix(subTab[ ,"normVal"]),
@@ -159,20 +151,19 @@ summariseScreenCombination <- function(screenData,
     }
 
     # fit synergyscreen with parallel running
-
-    fit <- synergyscreen(allInput,
-                         save_raw = F,
-                         save_plots = F,
-                         bayesynergy_params = list(method = "sampling"))
+    fit <- bayesynergy::synergyscreen(allInput,
+                                      save_raw = F,
+                                      save_plots = F,
+                                      bayesynergy_params = list(method = "sampling"))
 
     # get fit summary
     synTab <- fit$screenSummary %>%
-      mutate(cellLine = `Experiment ID`,
+      mutate(sampleID = `Experiment ID`,
              drug = `Drug A`,
              drug2 = `Drug B`,
              synergyScore = `Synergy Score`,
              antagonismScore = `Antagonism Score`) %>%
-      select(cellLine, drug, drug2, synergyScore, antagonismScore)
+      select(sampleID, drug, drug2, synergyScore, antagonismScore)
 
 
     # batch effects correction
@@ -182,10 +173,10 @@ summariseScreenCombination <- function(screenData,
       for(i in seq_len(nrow(allPair))){
 
         subIndex <- unlist(allPair[i, ])
-        subTab <- dplyr::filter(subData, cellLine == subIndex[1]) %>%
+        subTab <- dplyr::filter(subData, sampleID == subIndex[1]) %>%
           filter(drug %in% c(negDrug, subIndex[2]) &
                    drug2 %in% c(negDrug, subIndex[3])) %>%
-          select(cellLine, drug, drug2, concentration, concentration2, normVal.cor)
+          select(sampleID, drug, drug2, concentration, concentration2, normVal.cor)
 
         # inputs for synergyscreen function
         allInput.cor[[i]] <- list(y = as.matrix(subTab[ ,"normVal.cor"]),
@@ -204,16 +195,15 @@ summariseScreenCombination <- function(screenData,
 
       # get fit summary
       synTab.cor <- fit.cor$screenSummary %>%
-        mutate(cellLine = `Experiment ID`,
+        mutate(sampleID = `Experiment ID`,
                drug = `Drug A`,
                drug2 = `Drug B`,
                synergyScore.cor = `Synergy Score`,
                antagonismScore.cor = `Antagonism Score`) %>%
-        select(cellLine, drug, drug2, synergyScore.cor, antagonismScore.cor)
+        select(sampleID, drug, drug2, synergyScore.cor, antagonismScore.cor)
 
       # merge synTab and synTab.cor
-
-      synTab <- full_join(synTab, synTab.cor, by = c("cellLine", "drug", "drug2"))
+      synTab <- full_join(synTab, synTab.cor, by = c("sampleID", "drug", "drug2"))
 
     }
   }

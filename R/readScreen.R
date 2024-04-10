@@ -172,8 +172,8 @@ readScreen <- function(rawDir,
     colnames(screenData) <- "concentration2"
   }
 
-  #-
-  # # if combination drug
+  #
+  # if combination drug
   # if ("drug2" %in% colnames(drugAnno))
   #   drugAnno[,"combination"] <- paste0(drugAnno$drug, "_", drugAnno$drug2)
 

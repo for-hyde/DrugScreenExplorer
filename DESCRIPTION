@@ -21,7 +21,8 @@ Imports:
     stringr,
     tibble,
     tidyr,
-    tools
+    tools,
+	bayesynergy
 Suggests: 
     broom,
     DT,
