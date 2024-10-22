@@ -4,7 +4,7 @@
 \alias{sumIC50}
 \title{Summarize drug effect across concentrations using a 4-parameter log-logistic model}
 \usage{
-sumIC50(formula, data = NULL, minConc, maxConc, n = 100, ...)
+sumIC50(formula, data = NULL, minConc = 0, maxConc = 15, n = 100, ...)
 }
 \arguments{
 \item{formula}{formula for the curve fitting.}

@@ -76,10 +76,13 @@ A data frame with each row represent a well on a plate and the following columns
 \item{fileName}{input files names (without extension names) for the plates}
 \item{name}{drug name, if this column is present in the well annotation file}
 \item{concentration}{drug concentration, if this column is present in the well annotation file}
-\item{wellType}{the type of wells, can be either neg (negative controls), pos (positive controls) or sample (drug wells)}
-\item{normVal}{normalized viability based on control wells on the plate, if the normalization step is performed by setting \code{normalization = TRUE}}
-Depends on the user-specified plate and well annotations, other columns, such as sampleID, patientID,
-batch and so on, in the annotation files can also be present in the output table.
+\item{wellType}{the type of wells, can be either neg (negative controls),
+pos (positive controls) or sample (drug wells)}
+\item{normVal}{normalized viability based on control wells on the plate,
+if the normalization step is performed by setting \code{normalization = TRUE}}
+Depends on the user-specified plate and well annotations, other columns,
+such as sampleID, patientID, batch and so on, in the annotation files
+can also be present in the output table.
 }
 \description{
 This function creates a data frame that contains the screening result from a whole drug screen experiment.
@@ -93,6 +96,20 @@ screenData <- readScreen(rawDir = rawFolder, plateAnnotationFile = plateFile,
                         wellAnnotationFile = wellFile,
                         rowRange = c(3,18), colRange = 2,
                         sep = '[;\t]', commaAsDecimal = FALSE,
-                        negWell <- c('DMSO','PBS'), posWell = c())
-# see vignette for more instructions
+                        negWell = c('DMSO','PBS'), posWell = c())
+
+# Example with combined data
+rawFolder <- system.file('testData/rawDataCombine', package = 'DrugScreenExplorer')
+plateFile <- system.file('testData/plateAnnoCombine/plateAnnoCombine.tsv',
+                         package = 'DrugScreenExplorer')
+wellFile  <- system.file('testData/wellAnnoCombine/wellAnnoCombine.tsv',
+                         package = 'DrugScreenExplorer')
+screenData <- readScreen(rawDir = rawFolder, plateAnnotationFile = plateFile,
+                         wellAnnotationFile = wellFile,
+                         rowRange = c(7, 22),
+                         colRange = 2,
+                         sep = ',', commaAsDecimal = FALSE,
+                         negWell = c("DMSO_DMSO"),
+                         posWell = c())
+see vignette for more instructions
 }

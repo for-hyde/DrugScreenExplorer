@@ -8,7 +8,7 @@
 #' @param maxConc upper bound of concentrations for the integration of area under curve.
 #' @param n number of bins for integration.
 #' @param ... further arguments to be passed to dr4pl function.
-#' @export
+#' @export sumIC50
 #' @import dr4pl
 #' @return a dataframe with only one row and four columns:
 #' \item{UpperLimit}{the upper limit of the fitted logistic model}
@@ -40,10 +40,9 @@ sumIC50 <- function(formula, data = NULL, minConc = 0, maxConc = 15, n = 100, ..
                             conc = concSeq[, 1])
     aucVal <- calcAUC(valueConc$viab, valueConc$conc)
 
-    res <- setNames(mm$parm_fit$parameters,
-                    attr(mm$parm_fit$parameters, "param_info"))
-    res <- c(res, AUC = aucVal)
-    res
+    data.frame(t(structure(c(as.numeric(mm$parm_fit$parameters), aucVal),
+                           names = c("UpperLimit", "IC50", "Slope", "LowerLimit", "AUC"))))
+
 
   }, error = function(err) {
     warning("Curve fitting failed, NA values generated. ")
@@ -53,18 +52,6 @@ sumIC50 <- function(formula, data = NULL, minConc = 0, maxConc = 15, n = 100, ..
 
   return(res)
 }
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 

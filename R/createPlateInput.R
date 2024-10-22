@@ -1,4 +1,4 @@
-#' Create a template for plate annotation file
+#' Create a Template for Plate Annotation File
 #'
 #' This function creates a tab-separated values (tsv) file required for annotating plates, for example, the sample ID or patient ID for each plate.
 #' Users can use the file created by this function as a starting point for preparing the plate annotation file required by the \code{readScreen()} function.

@@ -2,24 +2,22 @@
 title: "Introduction to DrugScreenExplorer"
 author: "Junyan Lu"
 date: "`r format(Sys.time(), '%B %d, %Y')`"
-
 output:
   html_document:
-    fig_caption: yes
-    toc: yes
-    toc_depth = 3: 
-    number_sections: yes
-    fig_crop: no
-link-citations: yes
+    fig_caption: true
+    toc: true
+    toc_depth: 3
+    number_sections: true
+    fig_crop: false
+  pdf_document:
+    toc: true
+    toc_depth: '3'
+link-citations: true
 header-includes:
-    - \usepackage{setspace}
-    - \doublespacing
-    
-vignette: >
-  %\VignetteIndexEntry{"Introduction to DrugScreenExplorer"}
-  %\VignetteEngine{knitr::rmarkdown}
-  %\VignetteEncoding{UTF-8}
-  
+- \usepackage{setspace}
+- \doublespacing
+vignette: "%\\VignetteIndexEntry{\"Introduction to DrugScreenExplorer\"} %\\VignetteEngine{knitr::rmarkdown}
+  %\\VignetteEncoding{UTF-8}\n"
 ---
 
 ```{r include=FALSE}
@@ -28,7 +26,6 @@ knitr::opts_chunk$set(
   comment = "#>"
 )
 ```
-
 
 ```{r setup, echo=FALSE}
 knitr::opts_chunk$set(
@@ -66,8 +63,6 @@ knitr::knit_hooks$set(output = function(x, options) {
 
 # Introduction
 
-
-
 *DrugScreenExplorer* is an R package designed for streamlined processing, quality control and visualizing of high-throughput drug sensitivity screen data. 
 
 The package can achieve the following functions: 
@@ -85,6 +80,7 @@ library(DrugScreenExplorer)
 library(tidyr)
 library(dplyr)
 library(gridExtra)
+library(ggplot2)
 library(tools)
 ```
 
@@ -174,6 +170,7 @@ createWellInput(file = "wellAnno.csv", colNum = 24, rowNum = 16,
 
 wellAnno <- read.csv("wellAnno.csv", sep = "\t")
 head(wellAnno)
+
 ```
 
 A *wellAnno.csv* file will be created for a 384-well (16\*24) plate. The *wellID* is automatically filled by the *drug* and *concentration* columns need to be filled manual.
@@ -387,24 +384,26 @@ Drug effects can be evaluated using the half-maximal inhibitory concentration (I
 
 # Summarisation of drug effect
 
-```{r}
-screenData <- summariseScreen(screenData, method = c("average","AUC"))
+```{r, fig.height = 8, fig.width = 8}
+screenData <- summariseScreen(screenData, method = c("average", "AUC"))
+
+sumDat <- screenData %>% 
+  select(sampleID, drug, meanViab, AUC) %>% 
+  distinct(sampleID, drug, .keep_all = TRUE) %>% 
+  pivot_longer(cols = c("meanViab", "AUC"),
+               names_to = "method") %>% 
+  na.omit()
+
+ggplot(sumDat, aes(x = drug, y = value)) + 
+  geom_boxplot(fill = "#7FFFD4") + 
+  coord_flip() + 
+  theme_bw() + 
+  xlab("") + 
+  facet_grid( ~ method)
+  
 ```
 
-# Interactive data exploration using Shiny app
-
-Prepare data set for shiny app
-
-```{r, eval=FALSE}
-makeShiny(screenData, sampleAnnotations = c("batch","sampleID","patientID","Mutation","Expression","Group"))
-```
-The functions avaialbe for the shiny app will be dependent on the sample annotations provided by the user.   
-
-**Run shiny app**
-
-The shiny app can be excuted through running "app.R" under "shiny" folder. 
-
-### Extension to two-drug combination
+# Extension to two-drug combination
 
 ```{r}
 
@@ -440,7 +439,7 @@ grid.arrange(grobs = g, ncol = 2)
 ```
 
 
-```{r, fig.height=8, fig.width=10}
+```{r, fig.height = 2.5, fig.width=10}
 g <- plotTypeDist(screenData, ifLog10 = TRUE)
 grid.arrange(grobs = g, ncol = 4)
 ```
@@ -460,7 +459,22 @@ g <- plotPlate(screenData = screenData, plotPlate = "all", plotType = "layout")
 grid.arrange(grobs = g, ncol = 2)
 ```
 
+# Interactive data exploration using Shiny app
 
+Prepare data set for shiny app
 
+```{r, eval = FALSE}
+makeShiny(screenData, sampleAnnotations = c("batch","sampleID","patientID","Mutation","Expression","Group"))
+```
+The functions avaialbe for the shiny app will be dependent on the sample annotations provided by the user.   
+
+**Run shiny app**
+
+The shiny app can be excuted through running "app.R" under "shiny" folder. 
+
+# SessionInfo
+```{r}
+sessionInfo()
+```
 
 

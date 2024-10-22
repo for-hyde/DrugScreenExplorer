@@ -52,7 +52,7 @@ fitEdgeEffect <- function(screenData,
   # check if data has been normalized find n lowest concentrations
   if (useLowConcentrations > 0) {
     # identify the lowest concentrations for each drug
-    if (!all(c("name", "concentration", "wellType") %in% colnames(screenData))) {
+    if (!all(c("drug", "concentration", "wellType") %in% colnames(screenData))) {
       stop("No information of name, concentration and well type found")
     } else {
       nLowest <- function(x, n) {
@@ -60,7 +60,7 @@ fitEdgeEffect <- function(screenData,
       }
 
       lowConcTab <- dplyr::filter(screenData, wellType == "sample") %>%
-        group_by(name) %>%
+        group_by(drug) %>%
         do(tibble(concentration = nLowest(.$concentration, useLowConcentrations))) %>%
         ungroup()
     }

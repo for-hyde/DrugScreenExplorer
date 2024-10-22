@@ -11,7 +11,7 @@
 #' @param ... further arguments to be passed to \textit{dr4pl} function in \textit{dr4pl} package.
 #' @export fitIC50
 #' @import dr4pl
-#' @import plyr
+#' @import rlang
 #' @return fitIC50 returns an object of class 'fitIC50', which is a list containing the following components:
 #' \item{model}{the input dose-response table}
 #' \item{formula}{the formula used for the model fitting}
@@ -30,7 +30,7 @@
 fitIC50 <- function(formula, data = NULL, weights = NULL, logDose = NULL, ...) {
 
   #- check
-  if (!plyr::is.formula(formula))
+  if (!rlang::is_formula(formula))
     stop("The input should be a formula")
 
   if (!is.null(data)) {
@@ -53,10 +53,6 @@ fitIC50 <- function(formula, data = NULL, weights = NULL, logDose = NULL, ...) {
   class(newModel) <- "fitIC50"
   return(newModel)
 }
-
-
-
-
 
 
 

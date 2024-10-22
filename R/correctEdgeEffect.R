@@ -38,17 +38,21 @@ correctEdgeEffect <- function(screenData,
                               correctMethod = "bliss",
                               exclude = c()) {
 
-  # check
-  if (!is.data.frame(screenData)){
-    stop("screenData should be a data frame")
+  # Input validation
+  if (!is.data.frame(screenData)) {
+    stop("'screenData' must be a data frame.")
+  }
+  if (!all(c("normVal") %in% colnames(screenData))) {
+    stop("'screenData' must contain the column 'normVal'.")
   }
 
   # argument match
   estimateMethod <- match.arg(estimateMethod, c("loess", "sigmoid"))
   correctMethod  <- match.arg(correctMethod, c("bliss", "linear"))
 
+  # Update exclusion list if 'sampleID' column exists
   if ("sampleID" %in% colnames(screenData)) {
-    exclude <- c(exclude, dplyr::filter(screenData, sampleID %in% exclude)$fileName)
+    exclude <- unique(c(exclude, screenData %>% dplyr::filter(sampleID %in% exclude) %>% dplyr::pull(fileName)))
   }
 
   if (!"edgeFactor" %in% colnames(screenData)) {

@@ -17,8 +17,8 @@
 #'  synergy or antagonism effects. Currently, There are two methods available:
 #'  bliss and bayesynergy.
 #'
-#' @export summariseScreenCombination
 #' @import bayesynergy
+#' @export summariseScreenCombination
 #'
 #' @return
 #' The function returns a data frame.
@@ -59,10 +59,11 @@ summariseScreenCombination <- function(screenData,
 
   # only summarize the non-control wells
   subData <- dplyr::filter(screenData, wellType %in% "sample")
-  method <- match.arg(method, c("bliss", "bayesynergy"))
+  # method <- match.arg(method, c("bliss", "bayesynergy"))
 
   # Using bliss
-  if (method == "bliss") {
+  if ("bliss" %in% method) {
+
     # bliss method
     if (!ifCor) {
 
@@ -84,13 +85,15 @@ summariseScreenCombination <- function(screenData,
         distinct(sampleID, drug2, concentration2, .keep_all = TRUE)
 
       # get combination index (CI) and Logarithm of Combination Index (logCI)
-      synTab <- comTab %>%
+      screenData <- comTab %>%
         left_join(drugTab, by = c("sampleID", "drug", "concentration")) %>%
         left_join(drug2Tab, by = c("sampleID", "drug2", "concentration2")) %>%
         mutate(viabExp = 1 - viab * viab2) %>%
         mutate(CI = viabObs - viabExp,
-               logCI = log10(viabObs / viabExp))
-
+               logCI = log10(viabObs / viabExp)) %>%
+        left_join(x = screenData,
+                  by = c("sampleID", "drug", "drug2", "concentration",
+                         "concentration2"))
     }
 
     if (ifCor) {
@@ -114,7 +117,7 @@ summariseScreenCombination <- function(screenData,
         distinct(sampleID, drug2, concentration2, .keep_all = TRUE)
 
       # get combination index (CI) and Logarithm of Combination Index (logCI)
-      synTab <- comTab %>%
+      screenData <- comTab %>%
         left_join(drugTab, by = c("sampleID", "drug", "concentration")) %>%
         left_join(drug2Tab, by = c("sampleID", "drug2", "concentration2")) %>%
         mutate(viabExp = 1 - viab * viab2,
@@ -122,14 +125,16 @@ summariseScreenCombination <- function(screenData,
         mutate(CI = viabObs - viabExp,
                logCI = log10(viabObs / viabExp),
                CI.cor = viabObs.cor - viabExp.cor,
-               logCI.cor = log10(viabObs.cor / viabExp.cor))
-
+               logCI.cor = log10(viabObs.cor / viabExp.cor)) %>%
+        left_join(x = screenData,
+                  by = c("sampleID", "drug", "drug2", "concentration",
+                         "concentration2"))
     }
   }
 
   # Bayesian method
 
-  if (method == "bayesynergy") {
+  if ("bayesynergy" %in% method) {
 
     allPair <- distinct(subData, sampleID, drug, drug2) %>%
       filter((!drug %in% negDrug) & (!drug2 %in% negDrug))
@@ -157,14 +162,16 @@ summariseScreenCombination <- function(screenData,
                                       bayesynergy_params = list(method = "sampling"))
 
     # get fit summary
-    synTab <- fit$screenSummary %>%
+    screenData <- fit$screenSummary %>%
       mutate(sampleID = `Experiment ID`,
              drug = `Drug A`,
              drug2 = `Drug B`,
              synergyScore = `Synergy Score`,
              antagonismScore = `Antagonism Score`) %>%
-      select(sampleID, drug, drug2, synergyScore, antagonismScore)
-
+      select(sampleID, drug, drug2, synergyScore, antagonismScore) %>%
+      left_join(x = screenData,
+                by = c("sampleID", "drug", "drug2", "concentration",
+                       "concentration2"))
 
     # batch effects correction
     if (ifCor) {
@@ -203,12 +210,13 @@ summariseScreenCombination <- function(screenData,
         select(sampleID, drug, drug2, synergyScore.cor, antagonismScore.cor)
 
       # merge synTab and synTab.cor
-      synTab <- full_join(synTab, synTab.cor, by = c("sampleID", "drug", "drug2"))
-
+      screenData <- full_join(synTab, synTab.cor, by = c("sampleID", "drug", "drug2")) %>%
+        left_join(x = screenData,
+                  by = c("sampleID", "drug", "drug2", "concentration",
+                         "concentration2"))
     }
   }
-
-  return(synTab)
+  return(screenData)
 }
 
 

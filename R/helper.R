@@ -24,6 +24,7 @@ readPlate <- function(plateFile,
     } else {
       txtSp <- txt[x]  #only ',' or '.' as decimal
     }
+
     txtSp <- strsplit(txtSp, split = sep)[[1]]
     #txtSp <- txtSp[txtSp != ""]
     if (length(colRange) == 1)

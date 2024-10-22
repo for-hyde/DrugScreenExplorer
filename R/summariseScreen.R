@@ -70,19 +70,22 @@ summariseScreen <- function(screenData,
   # get the mean by concentration
   # drug combinations or single drug
   if (ifCor) {
-    subData <- group_by(subData, sampleID, drug, concentration) %>%
+    subData <- subData %>%
+      group_by(sampleID, drug, concentration) %>%
       summarise(viab = mean(normVal, na.rm = TRUE),
                 viab.cor = mean(normVal.cor, na.rm = TRUE)) %>%
       ungroup()
   } else {
-    subData <- group_by(subData, sampleID, drug, concentration) %>%
+    subData <- subData %>%
+      group_by(sampleID, drug, concentration) %>%
       summarise(viab = mean(normVal, na.rm = TRUE)) %>%
       ungroup()
   }
 
   # summarize average, IC50 and AUC
   # drug combinations or single drug
-  grouped_subData <- group_by(subData, sampleID, drug)
+  grouped_subData <- subData %>%
+    group_by(sampleID, drug)
 
   # "average" in method
   if ("average" %in% method) {
@@ -132,11 +135,11 @@ summariseScreen <- function(screenData,
   if ("IC50" %in% method) {
     # Group and nest the data for IC50 calculation
     sumTab <- grouped_subData %>%
-      nest() %>%
+      tidyr::nest() %>%
       dplyr::mutate(model = purrr::map(data, ~ sumIC50(viab ~ concentration,
                                                        data = .,
-                                                       minConc = 0,
-                                                       maxConc = 15))) %>%
+                                                       minConc = minConc,
+                                                       maxConc = maxConc))) %>%
       tidyr::unnest("model") %>%
       ungroup()
 
@@ -144,11 +147,11 @@ summariseScreen <- function(screenData,
 
     if (ifCor) {
       sumTab.cor <- grouped_subData %>%
-        nest() %>%
+        tidyr::nest() %>%
         dplyr::mutate(model = purrr::map(data, ~ sumIC50(viab.cor ~ concentration,
                                                          data = .,
-                                                         minConc = 0,
-                                                         maxConc = 15))) %>%
+                                                         minConc = minConc,
+                                                         maxConc = maxConc))) %>%
         tidyr::unnest("model") %>%
         ungroup()
 

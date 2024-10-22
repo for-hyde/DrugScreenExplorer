@@ -1,42 +1,53 @@
 # define modules
-
+library(shinyr)
 library(shiny)
 library(tidyverse)
 library(pheatmap)
 library(RColorBrewer)
 library(plotly)
 library(dr4pl)
-# library(DrugScreenExplorer)
+library(DrugScreenExplorer)
 library(DT)
 
 # load("./shinyData.RData")
 
 ui <- navbarPage(
+
   "DrugScreenExplorer",
   inverse = TRUE,
   id = "tabs",
 
-  tabPanel("Sample overview",
+  tabPanel("Sample Overview",
            titlePanel("Overview of samples in the screen"),
            sidebarLayout(
              sidebarPanel(
-               fileInput("file", "Choose a file",
-                         accept = c(
-                           ".xlsx",
-                           ".txt",
-                           ".tsv",
-                           ".csv")),
-               checkboxInput("header", "Header", TRUE),
-               uiOutput("column_selector_ui"),
-               width = 4
-             ),
+
+               # import and zip
+               fileInput("fileInput", "Choose ZIP File", accept = ".zip"),
+               actionButton("readButton", "Import"),
+
+               # parameters of screenData
+               uiOutput("getRowRange"),
+               uiOutput("getColRange"),
+
+               textInput("sep",
+                         "Choose a Range for Columns:",
+                         value = ","),
+
+               checkboxInput("commaAsDecimal",
+                             "Commas is used as decimal in the input data",
+                             value = FALSE),
+
+               uiOutput("selWells"),
+               width = 4),
              mainPanel(
                tags$style(type = "text/css",
                           ".shiny-output-error { visibility: hidden; }",
                           ".shiny-output-error:before { visibility: hidden; }"),
-               DTOutput("sampleInfo")
+               DT::dataTableOutput("sampleInfo")
              )
            )),
+
 
   tabPanel("Plate plot",
            titlePanel("Heatmap plot of drug screen plates"),
@@ -55,16 +66,17 @@ ui <- navbarPage(
                        plotlyOutput("plateHeatmap", width = 700, height = 400),
                        column(dataTableOutput("infoTab"), width = 4),
                        column(plotOutput("linePlot", width = 400, height = 300),
-                              width = 4), width = 8))),
+                              width = 4), width = 8))
+           ),
 
   tabPanel("Dose-response curves",
            titlePanel("Plot dose-response curves for selected drugs and samples"),
            sidebarLayout(
              sidebarPanel(
                uiOutput("nameDrugBox"),
-               uiOutput("seleGroup"),
-               conditionalPanel(condition = "input.selectGroup != 'All samples'"
-                                ,uiOutput("seleFeature")),
+               uiOutput("seleGroupBox"),
+               # conditionalPanel(condition = "input.selectGroup != 'All samples'"
+               #                  ,uiOutput("seleFeatureBox")),
                uiOutput("colorBox"),
                uiOutput("ifCorCheck1"),
                checkboxInput("ifIC50", "Fit IC50 curve", value = FALSE)
@@ -83,18 +95,22 @@ ui <- navbarPage(
                conditionalPanel(condition = "input.selectGroup1 != 'All samples'"
                                 ,uiOutput("seleFeature1")),
                uiOutput("sumTypeBox"),
-               radioButtons("plotType","Plot type", c("Heatmap","PCA","t-SNE","Drug-drug correlation"),
+               radioButtons("plotType","Plot type", c("Heatmap","PCA","t-SNE",
+                                                      "Drug-drug correlation"),
                             selected = "Heatmap"),
                conditionalPanel(condition = "input.plotType == 't-SNE'",
                                 numericInput("perplex", "Perplexity", value =20),
                                 numericInput("Niter", "Iteration round", value = 1000)),
                conditionalPanel(condition = "input.plotType == 'Heatmap'",
-                                radioButtons("ifRowNorm","Normalization", c("None","Row","Column"), selected = "None")),
+                                radioButtons("ifRowNorm","Normalization",
+                                             c("None","Row","Column"),
+                                             selected = "None")),
                uiOutput("ifCorCheck2"),
                uiOutput("colorBox1"),
                checkboxInput("ifCensor1","Fix value range", value = FALSE),
                uiOutput("censorLimitBox1"),
-               sliderInput("topPercent", "Top variant drugs", min = 10, max = 100, value = 100, step = 10),
+               sliderInput("topPercent", "Top variant drugs",
+                           min = 10, max = 100, value = 100, step = 10),
                downloadButton("download", "Download as pdf"),
                numericInput("figWidth", label = "Figure width", value = 16),
                numericInput("figHeight", label = "Figure height", value = 15)
@@ -127,23 +143,134 @@ ui <- navbarPage(
 
 server <- function(input, output, session) {
 
-  # import drugscreen data
-  screenData <- reactive({
+  # get temp directory
+  temp <- tempdir()
 
-    inFile <- input$file
-    if (is.null(inFile))
-      return(NULL)
+  observeEvent(input$readButton, {
 
-    ext <- tools::file_ext(inFile$name)
-    if (ext %in% c("csv", "txt", "tsv")) {
-      data <- read.csv(inFile$datapath)
-    } else if (ext == "xlsx") {
-      data <- readxl::read.xlsx(inFile$datapath, sheet = 1)
-    } else {
-      stop("Invalid file format")
+    # unzip the file
+    unzip(input$fileInput$datapath, exdir = temp)
+    fileCheck <- all(c("plateAnno", "rawData", "wellAnno") %in% list.files(temp))
+
+    if (!fileCheck()){
+      req(fileCheck())
+      misFiles <- setdiff(c("plateAnno", "rawData", "wellAnno"),
+                          list.files(temp))
+      warning(paste0("File missing: ", paste0(misFiles), "\n\n"))
     }
-    return(data)
   })
+
+  rawDir <- paste0(temp, "/rawData")
+  print(rawDir)
+
+  # check plateAnno
+  checkPlateAnno <- list.files(paste0(temp, "/plateAnno/"),
+                               pattern = "plateAnno",
+                               full.names = TRUE)
+
+  if (length(checkPlateAnno) == 0)
+    warning("Missing file in plateAnno folder: plateAnno, \n\n")
+
+  #check wellAnno
+  checkWellAnno <- list.files(paste0(temp, "/wellAnno/"),
+                              pattern = "wellAnno",
+                              full.names = TRUE)
+
+  if (length(checkWellAnno) == 0)
+    warning("Missing file in wellAnno folder: wellAnno \n\n")
+
+  # row Range
+  output$getRowRange <- renderUI({
+
+    tagList(div(style = "display:inline-block; width: 90px",
+                numericInput("rowTop", "top", value = 7,
+                             min = 0,
+                             max = 9999,
+                             step = 1)),
+            div(style = "display:inline-block; width: 90px",
+                numericInput("rowBottom", "Bottom", value = 22,
+                             min = 0,
+                             max = 9999,
+                             step = 1)))
+  })
+
+  output$getColRange <- renderUI({
+
+    tagList(div(style = "display:inline-block; width: 90px",
+                numericInput("colLeft", "Column left", value = 2,
+                             min = 0,
+                             max = 9999,
+                             step = 1)),
+            div(style = "display:inline-block; width: 90px",
+                numericInput("colRight", "Column right", value = 9999,
+                             min = 0,
+                             max = 9999,
+                             step = 1)))
+  })
+
+
+  colRange <- reactive({
+
+    if(input$colRight == 9999)
+      colRange <- input$colLeft
+    else
+      colRange <- c(input$colLeft, input$colRight)
+
+    colRange
+  })
+
+  screenData <- reactive({
+    readScreen(rawDir = rawDir,
+               plateAnnotationFile = checkPlateAnno,
+               wellAnnotationFile = checkWellAnno,
+               rowRange = c(input$rowTop, input$rowBottom),
+               colRange = colRange(),
+               sep = input$sep,
+               commaAsDecimal = input$commaAsDecimal,
+               negWell = c(),
+               posWell = c())
+  })
+
+  output$selWells <- renderUI({
+
+    req(screenData)
+    # only two drug combination allowed
+    if ("drug2" %in% colnames(screenData())){
+      allDrugs <- unique(paste0(screenData()$drug, "_", screenData()$drug2))
+    } else {
+      allDrugs <- unique(screenData()$drug)
+    }
+
+    # selectInput
+    selectInput("negWell",
+                "Negative control wells: drug names",
+                choices = sort(allDrugs),
+                multiple = T)
+
+    selectInput("posWell",
+                "Positive wells: drug names",
+                choices = sort(allDrugs),
+                multiple = T)
+
+  })
+
+
+  # define the well type information
+
+  if ("drug2" %in% colnames(screenData())){
+
+    # Both drug_drug2 amd drug2_drug work
+    combs <- paste0(screenData()$drug, "_", screenData()$drug2)
+    screenData <- dplyr::mutate(screenData(),
+                                wellType = case_when(combs %in% input$negWell ~ "neg",
+                                                     combs %in% posWell  ~ "pos",
+                                                     .default = "sample"))
+  } else {
+    screenData <- dplyr::mutate(screenData(),
+                                wellType = case_when(drug %in% negWell ~ "neg",
+                                                     drug %in% posWell ~ "pos",
+                                                     .default = "sample"))
+  }
 
 
   # Dynamically generate UI for column selection
@@ -156,9 +283,11 @@ server <- function(input, output, session) {
       checkboxGroupInput("sampleAnnotations",
                          "Select sample information to display:",
                          choices = colnames(screenData()),
-                         selected = "sampleID")
+                         selected = c("sampleID", "fileName"))
   })
 
+
+  # hideTab
   reactive({
 
     req(screenData())
@@ -195,27 +324,31 @@ server <- function(input, output, session) {
   })
 
   # DT table for showing the sample annotations and filtering
-  output$sampleInfo <- renderDT({
+  output$sampleInfo <- DT::renderDataTable({
 
     infoTable_new <- mutate_if(infoTable(), is.character, as.factor)
     ## dplyr::select(-fileName)
-    DT::datatable(infoTable_new, filter = "top", rownames = FALSE,
-                  selection = "none", style = "bootstrap")
+    DT::datatable(infoTable_new,
+                  filter = "top",
+                  rownames = FALSE,
+                  selection = 'none',
+                  style = "bootstrap")
   })
 
   # Reactive object for getting filtered samples
   filteredData <- reactive({
-
     req(infoTable)
-    selectedPlates <- as.character(infoTable()[input$sampleInfo_rows_all, ] %>%
+    selRows <- input$sampleInfo_rows_all
+    print(input$sampleInfo_rows_all)
+    selectedPlates <- as.character(infoTable()[selRows, ] %>%
                                      pull(fileName))
     dataNew <- filter(screenData(), fileName %in% selectedPlates)
     dataNew
   })
 
-  ##############################################
+  ##############################################################################
   ## Second panel: plate heatmap for a plate
-  ##############################################
+  ##############################################################################
 
   output$patientSeleBox <- renderUI({
 
@@ -228,6 +361,8 @@ server <- function(input, output, session) {
   })
 
   output$sampleSeleBox <- renderUI({
+
+    req(input$selePatient)
 
     if (all(c("patientID", "sampleID") %in% colnames(filteredData()))) {
       sampleIDs <- unique(filter(filteredData(),
@@ -248,13 +383,13 @@ server <- function(input, output, session) {
 
   output$plateSeleBox <- renderUI({
 
+    req(input$seleSample)
     if ("sampleID" %in% colnames(filteredData())) {
       plateIDs <- unique(filter(filteredData(),
                                 sampleID == input$seleSample)$fileName)
     } else {
       plateIDs <- unique(filteredData()$fileName)
     }
-
     selectInput("selePlate",
                 "Select a plate file",
                 sort(plateIDs),
@@ -309,6 +444,8 @@ server <- function(input, output, session) {
 
   plotTab <- reactive({
 
+    req(input$selePlate)
+
     ## Function to generate an ordered row IDs based on the number of rows
     genRowIDs <- function(x) {
       c(paste0(LETTERS, 0),
@@ -354,6 +491,8 @@ server <- function(input, output, session) {
 
   output$plateHeatmap <- renderPlotly({
 
+    req(input$selePlate)
+
     p <- ggplot(plotTab(),
                 aes(x = colID, y = rowID, fill = val, label = drug)) +
       geom_tile(color = "grey80") +
@@ -366,7 +505,9 @@ server <- function(input, output, session) {
 
     if (input$ifNorm %in% c("viability", "z-score")) {
       if (!is.null(input$ifCensor) && input$ifCensor) {
-        p <- p + scale_fill_gradient2(high = "red", low = "blue", mid = "white",
+        p <- p + scale_fill_gradient2(high = "red",
+                                      low = "blue",
+                                      mid = "white",
                                       midpoint = 1,
                                       limits = c(as.numeric(input$lowerLimit),
                                                  as.numeric(input$upperLimit)),
@@ -395,7 +536,7 @@ server <- function(input, output, session) {
     # Add potential interesting columns that may or may not exist
     addCol <- intersect(c("drug", "wellType", "concentration"),
                         colnames(plotTab()))
-    showAnno <- unique(c(sampleAnnotations, addCol))
+    showAnno <- unique(c(input$sampleAnnotations, addCol))
     showAnno <- showAnno[showAnno != "fileName"]
     infoTab <- filter(plotTab(),
                       rowID == levels(plotTab()$rowID)[s$y],
@@ -413,7 +554,7 @@ server <- function(input, output, session) {
   # prepare table for the dose-response plot on the first panel
   linePlotTab1 <- reactive({
 
-    if (any(!c("name", "concentration") %in% colnames(plotTab()))) {
+    if (any(!c("drug", "concentration") %in% colnames(plotTab()))) {
       NULL
     } else {
       s <- event_data("plotly_click")
@@ -428,8 +569,9 @@ server <- function(input, output, session) {
   # dose-response curve for selected drugs if possible.
   output$linePlot <- renderPlot({
 
-    if (any(!c("name", "concentration") %in% colnames(plotTab()))) {
-      text <- "drug name, concentration and normalized viability\n must be available in order to show\n dose-response curve"
+    if (any(!c("drug", "concentration") %in% colnames(plotTab()))) {
+      text <- "drug name, concentration and normalized viability\n must
+      be available in order to show\n dose-response curve"
       p <- ggplot() +
         annotate("text", x = 4, y = 25, size = 3, label = text, col = "red") +
         theme_void() +
@@ -451,7 +593,7 @@ server <- function(input, output, session) {
         ylab(input$ifNorm) +
         ggtitle(drugName) +
         theme(plot.title = element_text(hjust = 0.5, face = "bold", color = "red"),
-              axis.text = element_text(size = 13),
+              axis.text  = element_text(size = 13),
               axis.title = element_text(size = 13))
 
       if (input$ifCensor) {
@@ -463,27 +605,35 @@ server <- function(input, output, session) {
   })
 
   ##############################################################################
-  ## Third panel: dose-response curves ##
+  ## Third panel: dose-response curves
   ##############################################################################
-
-  # select a drug name
-  output$nameDrugBox <- renderUI({
-    allDrugs <- filter(filteredData(), wellType == "sample") %>%
-      distinct(drug) %>%
-      pull(drug)
-    selectInput("nameDrug", "Select a drug", sort(allDrugs))
-  })
 
 
   ## select patient group for subsetting
-  output$seleGroup <- renderUI({
+  output$seleGroupBox <- renderUI({
+    # req(input$sampleAnnotations)
     selectInput("selectGroup",
                 "Subset samples by",
-                c("All samples", sampleAnnotations))
+                c("All samples", input$sampleAnnotations))
+  })
+  # select a drug name
+  output$nameDrugBox <- renderUI({
+    # req(filteredData())
+    allDrugs <- filter(filteredData(),
+                       wellType == "sample") %>%
+      distinct(drug) %>%
+      pull(drug)
+
+    print(allDrugs)
+    selectInput("nameDrug", "Select a drug", allDrugs)
+
   })
 
+
+
   ## select features for grouping of the patients
-  output$seleFeature <- renderUI({
+  output$seleFeatureBox <- renderUI({
+    req(input$selectGroup)
     if (!is.null(input$selectGroup) && input$selectGroup != "All samples") {
       allGroups <- unique(pull(filteredData(), input$selectGroup))
       selectInput("seleSub", "Groups included",
@@ -496,7 +646,8 @@ server <- function(input, output, session) {
   })
 
   colClass <- reactive({
-    sapply(sampleAnnotations, function(n) {
+    req(input$sampleAnnotations)
+    sapply(input$sampleAnnotations, function(n) {
       detectClass((filteredData() %>%
                      distinct(sampleID, .keep_all = TRUE))[[n]])
     })
@@ -504,8 +655,8 @@ server <- function(input, output, session) {
 
   ## select features for color scheme
   output$colorBox <- renderUI({
-
-    sampleAnnotations <- sampleAnnotations[colClass() != "nd"]
+    req(input$sampleAnnotations)
+    sampleAnnotations <- input$sampleAnnotations[colClass() != "nd"]
     selectInput("seleColor", "Color by", sampleAnnotations,
                 size = 5,
                 selectize = FALSE,
@@ -516,23 +667,28 @@ server <- function(input, output, session) {
   # show option for incubation effect correction if 'normVal.cor' is present
   output$ifCorCheck1 <- renderUI({
     if ("normVal.cor" %in% colnames(filteredData())) {
-      checkboxInput("ifCorrected1", "Incubation effect correction", value = FALSE)
+      checkboxInput("ifCorrected1",
+                    "Incubation effect correction",
+                    value = FALSE)
     }
   })
 
   # data table for dose-response plot
   doseTab <- reactive({
 
+    # req(input$nameDrug)
     # subset the screen data according to the selection
     if (!is.null(input$selectGroup) && input$selectGroup == "All samples") {
+
       plotTab <- filter(filteredData(),
-                        name == input$nameDrug)
+                        drug == input$nameDrug)
     } else {
+
       selePlates <- filteredData()[unlist(filteredData()[, input$selectGroup])
                                    %in% input$seleSub, ]$fileName
       plotTab <- filter(filteredData(),
                         fileName %in% selePlates,
-                        name == input$nameDrug)
+                        drug == input$nameDrug)
     }
     plotTab
   })
@@ -558,19 +714,30 @@ server <- function(input, output, session) {
     }
 
     p <- ggplot(data = plotTab,
-                aes_string(x = "concentration", y = valueType, col = input$seleColor, group = "sampleID")) +
+                aes_string(x = "concentration",
+                           y = valueType,
+                           col = input$seleColor,
+                           group = "sampleID")) +
       geom_point(pch = 16, size = 4) +
       theme_classic() +
       scale_x_log10(labels = fmt_dcimals(3)) +
-      theme(axis.line.x = element_line(size = 0.5, plot.title = element_text(hjust = 0.5, face = "bold", color = "red"))) +
+      theme(axis.line.x =
+              element_line(size = 0.5,
+                           plot.title = element_text(hjust = 0.5,
+                                                     face = "bold",
+                                                     color = "red"))) +
       ylab("Viability") +
       xlab("Concentration") +
       coord_cartesian(ylim = c(0, 1.5)) +
-      ggtitle(input$nameDrug)
+      ggtitle(as.character(input$nameDrug))
     if (input$ifIC50){
-      p <- p + geom_smooth(method = "fitIC50", se = FALSE, method.args = list(logDose = 10))
+      p <- p + geom_smooth(method = "fitIC50",
+                           se = FALSE,
+                           method.args = list(logDose = 10))
     } else {
-      p <- p + stat_summary(aes(group = sampleID), fun.y = mean, geom = "line")
+      p <- p + stat_summary(aes(group = sampleID),
+                            fun.y = mean,
+                            geom = "line")
     }
 
     if (colType == "continuous") {
@@ -585,11 +752,15 @@ server <- function(input, output, session) {
       config(displayModeBar = FALSE)
   })
 
-  ## Fourth panel: Clustering plot ##
+  ##############################################################################
+  ## Fourth panel: Clustering plot
+  ##############################################################################
 
   # select patient group for subsetting
   output$seleGroup1 <- renderUI({
-    selectInput("selectGroup1", "Subset samples by", c("All samples", sampleAnnotations))
+    selectInput("selectGroup1",
+                "Subset samples by",
+                c("All samples", input$sampleAnnotations))
   })
 
   # select the summarisation statistics
