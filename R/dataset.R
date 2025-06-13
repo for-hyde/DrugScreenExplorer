@@ -2,7 +2,8 @@
 
 #' Example drug screen data on CLL samples
 #'
-#' This is an example drug screen dataset of CLL samples processed by \code{readScreen()} function.
+#' This is an example drug screen dataset of CLL samples processed by
+#' \code{readScreen()} function.
 #' Normalization was not performed.
 #'
 #' @docType data
@@ -14,7 +15,8 @@
 
 #' Example drug screen data on CLL samples with normalization
 #'
-#' This is an example drug screen dataset of CLL samples processed by \code{readScreen()} function.
+#' This is an example drug screen dataset of CLL samples processed by
+#' \code{readScreen()} function.
 #' Normalization was performed based on negative controls.
 #'
 #' @docType data
@@ -27,7 +29,8 @@
 
 #' Example drug screen data for two-drug combination
 #'
-#' This is an example drug screen dataset for two-drug combination processed by \code{readScreen()} function.
+#' This is an example drug screen dataset for two-drug combination processed
+#' by \code{readScreen()} function.
 #'
 #' @docType data
 #' @usage data(screenData_combine)
@@ -39,7 +42,8 @@
 
 #' Example drug screen data for the two-drug combination with normalization
 #'
-#' This is an example drug screen dataset for two-drug combination processed by \code{readScreen()} function.
+#' This is an example drug screen dataset for two-drug combination processed
+#' by \code{readScreen()} function.
 #' Normalization was performed based on negative controls.
 #'
 #' @docType data

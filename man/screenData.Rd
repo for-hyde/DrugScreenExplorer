@@ -11,7 +11,8 @@ an object of "tbl_df" (tidy table)
 data(screenData)
 }
 \description{
-This is an example drug screen dataset of CLL samples processed by \code{readScreen()} function.
+This is an example drug screen dataset of CLL samples processed by
+\code{readScreen()} function.
 Normalization was not performed.
 }
 \examples{

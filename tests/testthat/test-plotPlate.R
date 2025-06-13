@@ -23,7 +23,7 @@ test_that("plotPlate", {
                  "The following plates cannot be found: A")
 
   output <- plotPlate(screenData_normalized,
-                      plotPlate = plates,
+                      plotPlate = "all",
                       plotType = 'layout')
 
   expect_true(is(output[[1]], "ggplot"))

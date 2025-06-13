@@ -15,6 +15,7 @@ test_that("`useNeg = F` should be identical to `useNeg = TRUE & useLowConcentrat
                                                    method = "loess",
                                                    useNeg = TRUE,
                                                    useLowConcentrations = 100)
+
   expect_equal(testEdgeFactor_loess_noNeg$edgeFactor,
                testEdgeFactor_loess_NegAddslow$edgeFactor)
 
@@ -47,6 +48,7 @@ testEdgeFactor_sigmoid <- fitEdgeEffect(screenData_norm,
                                         method = "sigmoid",
                                         useNeg = TRUE,
                                         useLowConcentrations = 0)$edgeFactor
+
 testEdgeFactor_sigmoid_allWell <- fitEdgeEffect(screenData_norm,
                                                 method = "sigmoid",
                                                 useNeg = FALSE,
@@ -69,11 +71,11 @@ test_that("Fit edge factor using loess method with all wells", {
 })
 
 test_that("Estimate edge effect strength using 1 layer", {
-  expect_equal(estimateOnePlate(screenOnePlate, nLayer =1, onlyNeg = FALSE), edgeVal1)
+  expect_equal(DrugScreenExplorer:::estimateOnePlate(screenOnePlate, nLayer =1, onlyNeg = FALSE), edgeVal1)
 })
 
 test_that("Estimate edge effect strength using 2 layers and only negative wells", {
-  expect_equal(estimateOnePlate(screenOnePlate, nLayer =2, onlyNeg = TRUE), edgeVal2)
+  expect_equal(DrugScreenExplorer:::estimateOnePlate(screenOnePlate, nLayer =2, onlyNeg = TRUE), edgeVal2)
 })
 
 

@@ -2,24 +2,24 @@
 title: "Introduction to DrugScreenExplorer"
 author: "Junyan Lu"
 date: "`r format(Sys.time(), '%B %d, %Y')`"
-
 output:
   html_document:
-    fig_caption: yes
-    toc: yes
+    fig_caption: true
+    toc: true
     toc_depth: 3
-    number_sections: yes
-    fig_crop: no
-link-citations: yes
-header-includes:
-    - \usepackage{setspace}
-    - \doublespacing
-    
+    number_sections: true
+    fig_crop: false
+  pdf_document:
+    toc: true
+    toc_depth: '3'
+link-citations: true
 vignette: >
-  %\VignetteIndexEntry{"Introduction to DrugScreenExplorer"}
+  %\VignetteIndexEntry{Introduction to DrugScreenExplore}
   %\VignetteEngine{knitr::rmarkdown}
   %\VignetteEncoding{UTF-8}
-  
+header-includes:
+- \usepackage{setspace}
+- \doublespacing
 ---
 
 ```{r include=FALSE}
@@ -40,6 +40,7 @@ options(width = 100)
 knitr::opts_chunk$set(tidy.opts=list(width.cutoff = 75))
 
 ```
+
 
 ```{r include=FALSE}
 # the code in this chunk enables us to truncate the print output for each
@@ -62,28 +63,47 @@ knitr::knit_hooks$set(output = function(x, options) {
 })
 ```
 
-# Getting started
 
-*DrugScreenExplorer* is an R package designed for streamlined processing, quality control and visualizing of high-throughput drug sensitivity screen data. 
+# Introduction
+
+*DrugScreenExplorer* is an R package designed for streamlined processing, 
+quality control and visualizing of high-throughput drug sensitivity screen data. 
 
 The package can achieve the following functions: 
 
 1, normalize the viability values   
 2, detect and adjust the edge effects    
 3, summarize drug effects using several indices, e.g., IC50 and AUC  
-4, generate a quality report of the screen data 
-5, using a shiny app to explore process data interactively  
+4, summarize the synergy or antagonism effects of two-drug combination     
+5, generate a quality report of the screen data     
+6, using a shiny app to explore process data interactively   
 
-The package was original designed to proceed the single drug screening, but now extended to two-drug combinations.    
-
+*DrugScreenExplorer* was original designed to proceed the single drug screening, 
+but now extended to two-drug combinations.    
 
 ```{r, message = FALSE, warning = FALSE}
 library(DrugScreenExplorer)
 library(tidyr)
 library(dplyr)
 library(gridExtra)
+library(ggplot2)
 library(tools)
 ```
+
+
+# Installation
+
+The *DrugScreenExplorer* package can be installed from  Bioconductor using the 
+following commands:
+
+```{r, eval = FALSE}
+
+if (!requireNamespace("BiocManager", quietly = TRUE))
+     install.packages("BiocManager")
+BiocManager::install("DrugScreenExplorer")
+
+```
+
 
 # Data import
 
@@ -91,56 +111,78 @@ library(tools)
 
 For creating the complete drug screen datasets, three types of data are needed:
 
-1) the raw screening data in text format, which stores the values out from a plate reader;
+1) the raw screening data in text format, which stores the values out from a 
+plate reader;
 
-2) the well annotation or plate layout, which stores the metadata for all the wells on a screening plate. The most important annotations are drug names and concentrations;
+2) the well annotation or plate layout, which stores the metadata for all the 
+wells on a screening plate. The most important annotations are drug names and 
+concentrations;
 
 3) the plate annotation, which stores the metadata for each plate. 
 For example, the sample information, if each plate represents one sample.
 
-The examples for each type of the input files can be found in the test data affiliated with this package:
+The examples for each type of the input files can be found in the test data 
+affiliated with this package:
 
 **Raw screening data**
+
 ```{r}
 system.file("testData/rawData", package = "DrugScreenExplorer")
 ```
-If the text files containing the raw screening data are organized by subfolders, the subfolders will be considered as batches.
+If the text files containing the raw screening data are organized by subfolders, 
+the subfolders will be considered as batches.
 
 **Plate annotation file**
+
 ```{r}
 system.file("testData/plateAnno/plateAnno.tsv", package = "DrugScreenExplorer")
 ```
-The *fileName* column is mandatory. If the plates do not all have the same layout, for example, several plates are used for the same sample but with different drug collections, a *plateID* column can be included to indicate the plate index.
+
+The *fileName* column is mandatory. If the plates do not all have the same 
+layout, for example, several plates are used for the same sample but with 
+different drug collections, a *plateID* column can be included to indicate 
+the plate index.
 
 **Well annotation file**
+
 ```{r}
 system.file("testData/wellAnno/wellAnno.tsv", package = "DrugScreenExplorer")
 ```
-The *wellID* column is mandatory.
-If plates have different layouts, a *plateID* column can be used as in the plate annotation file. 
 
+The *wellID* column is mandatory. If plates have different layouts, a *plateID* 
+column can be used as in the plate annotation file. 
 
-## Functions for helping create annotation files
+## Functions for creating annotation files
 
-Besides create the well and plate annotations files manually, there are two functions can be used to help create the annotation input files.
+Besides create the well and plate annotations files manually, there are two 
+functions can be used to help create the annotation input files.
 
 ### createPlateInput()
 
-The function creates a framework for the plate annotation input based on the raw data files and folder structure in the raw data folder.
+The function creates a framework for the plate annotation input based on the 
+raw data files and folder structure in the raw data folder.
 
 ```{r}
 rawFolder <- system.file("testData/rawData", package = "DrugScreenExplorer")
 ```
 
-```{r, eval=FALSE}
+```{r}
 createPlateInput(rawDir = rawFolder,
                  file = "plateAnno.csv",
                  entries = c("sampleID", "patientID"))
+plateAnno <- read.csv("./plateAnno.csv", sep = "\t")
+head(plateAnno)
 ```
 
-An csv file named "plateAnno.csv" will be created in the current working directory. The profile has three columns: *fileName*, *sampleID*, and *patientID*.  *fileName* column is automatically filled based on the files in the raw data folder, while *sampleID* and *patientID* columns need to be filled manually. 
+An csv file named "plateAnno.csv" will be created and it has three columns: 
+*fileName*, *sampleID*, and *patientID*. The *fileName* column is automatically 
+filled based on the files in the raw data folder, while *sampleID* and 
+*patientID* columns need to be filled manually in the created "plateAnno.csv". 
 
-If the text files containing the raw data are grouped in sub-folders, and you want the sub-folders to be considered as batches. The createPlateInput function can also generate the batch information automatically if the *batchAsFolder* is TRUE.
+When raw data is saved within sub-folders, each sub-folder representing data 
+from distinct batches, the *createPlateInput()* function can search for the 
+raw data within each sub-folder and automatically generate batch information 
+when *batchAsFolder* is set to *TRUE*. 
 
 ```{r, eval=FALSE}
 rawFolder <- system.file("testData/rawData", package = "DrugScreenExplorer")
@@ -148,63 +190,125 @@ createPlateInput(rawDir = rawFolder,
                  file = "plateAnno.csv",
                  entries = c("sampleID", "patientID"),
                  batchAsFolder = TRUE)
+
+plateAnno <- read.csv("./plateAnno.csv", sep = "\t")
+head(plateAnno)
+
 ```
-In the output *plateAnno.csv* file, there's an additional column *batch*, which contains the batch information. Notice that the folder names are not used as batch names. Instead, the series of integer numbers will be assigned to batches based on the ordering of the folder names. 
+
+In the output *plateAnno.csv* file, there's an additional column *batch*, 
+which contains the batch information. Notice that the folder names are not 
+used as batch names. Instead, the series of integer numbers will be assigned 
+to batches based on the ordering of the folder names. 
 
 ### createWellInput()
 
 The function creates the framework for the well annotation input.
+
 ```{r, eval=FALSE}
 createWellInput(file = "wellAnno.csv", colNum = 24, rowNum = 16,
-                entries = c("name", "concentration"))
-```
-A *wellAnno.csv* file will be created for a 384-well (16\*24) plate. The *wellID* is automatically filled by the *name* and *concentration* columns need to be filled manual.
+                entries = c("drug", "concentration"))
 
-If more than one plate layouts for a sample are used in the screen, for example, when one plate is not enough for testing all the drugs, the *platePerSample* parameter can be used to specify how many different plate layouts are used for each sample.
+wellAnno <- read.csv("wellAnno.csv", sep = "\t")
+head(wellAnno)
+
+```
+
+A *wellAnno.csv* file will be created for a 384-well (16\*24) plate. The 
+*wellID* is automatically filled by the *drug* and *concentration* columns 
+need to be filled manual.
+
+If more than one plate layouts for a sample are used in the screen, for example, 
+when one plate is not enough for testing all the drugs, the *platePerSample* 
+parameter can be used to specify how many different plate layouts are used for 
+each sample.
+
 ```{r, eval=FALSE}
 createWellInput(file = "wellAnno.csv", colNum = 24, rowNum = 16,
                 entries = c("name", "concentration"),
                 platePerSample = 2)
 ```
-In the *wellAnno.csv* file, an additional column *plateID* will be created, indicating the index of the plate layout type. It is important that a *plateID* column must also be created manually in the plate annotation file, to specify which plate layout a certain plate is using. 
+In the *wellAnno.csv* file, an additional column *plateID* will be created, 
+indicating the index of the plate layout type. It is important that a *plateID* 
+column must also be created manually in the plate annotation file, to specify 
+which plate layout a certain plate is using. 
 
 ## Read in the whole experiment
 
-After preparing the raw data folder, the plate annotation file and the well annotation file, the whole experiment can be read in using the `readScreen()` function.
+After preparing the raw data folder, the plate annotation file and the well 
+annotation file, the whole experiment can be read in using the `readScreen()` 
+function.
+
 ```{r, message=FALSE}
+
 plateFile <- system.file("testData/plateAnno/plateAnno.tsv",
                          package = "DrugScreenExplorer")
-wellFile <- system.file("testData/wellAnno/wellAnno.tsv",
+
+wellFile  <- system.file("testData/wellAnno/wellAnno.tsv",
                          package = "DrugScreenExplorer")
-screenData <- readScreen(rawDir = rawFolder, plateAnnotationFile = plateFile,
+
+screenData <- readScreen(rawDir = rawFolder, 
+                         plateAnnotationFile = plateFile,
                          wellAnnotationFile = wellFile, 
                          rowRange = c(3,18), colRange = 2, 
                          sep = "[;\t]",
                          negWell <- c("DMSO","PBS"), posWell = c())
 head(screenData)
+
 ```
 
 A tidy table containing the drug screening result and metadata will be created.   
-Because each platform can generate different raw data format, the *rowRange* and *colRange* function can tell the function the staring and ending place of the numeric data that represent the signals. Different delimiters can be specified by *sep* and regular expression is supported.   
 
-The positive control and negative control wells can be specified by *negWell* and *posWell*. The input for *negWell* or *posWell* can be either a character vector of *wellIDs* or drug names if the *name* column is given in the well annotation file. Wells that are not labeled as positive controls ("pos") or negative controls ("neg") will be labelled as "sample" in the "wellType" column in the final output table. This column is important for plate-wise normalization.   
+The raw data format may vary across different platforms. *readScreen()* provides 
+two arguments *rowRange* and *colRange* specifying the staring and ending 
+positions of the numeric data that represent signals. For instance, 
+*rowRange = c(3, 18)* and *colRange = 2* indicate that the data spans rows 3 
+to 18 and columns 2 to the last column, containing the signal information. 
+Argument *sep* can specify delimiters (e.g, "," or "[;\t]"), where regular 
+expression is supported. 
 
-The inhibition rate for each well can also be calculated at this stage by specifying "normalization = TRUE". Currently, two methods are supported: "negatives" and "NPI". The "negative" method calculates the inhibition rate by dividing each measurement by the median of negative controls on the same plate $x_{normalized} = \frac{x}{Median(x_{neg})}$, where $Median(x_{neg})$ represents the median of negative controls; The "NPI" method, which stands for "normalized percent inhibition", measures the distance to the positive controls against the distance between the negative control and positive controls, calculated as $x_{normalized} = \frac{x - Median(x_{pos})}{Median(x_{neg}) - Median(x_{pos})}$. 
+The positive control and negative control wells can be defined in *negWell* 
+and *posWell*. The input for *negWell* or *posWell* can be either a character 
+vector of *wellIDs* or drug names if the *drug* column is given in the well 
+annotation file. Wells that are not labeled as positive controls ("pos") or 
+negative controls ("neg") will be labelled as "sample" in the "wellType" column 
+of the final output table. This column is important for plate-wise normalization.   
+
+The inhibition rate for each well can also be calculated at this stage by 
+specifying "normalization = TRUE". Currently, two methods are supported: 
+"negatives" and "NPI". The "negative" method calculates the inhibition rate 
+by dividing each measurement by the median of negative controls on the same 
+plate $x_{normalized} = \frac{x}{Median(x_{neg})}$, where $Median(x_{neg})$ 
+represents the median of negative controls; The "NPI" method, which stands 
+for "normalized percent inhibition", measures the distance to the positive 
+controls against the distance between the negative control and positive 
+controls, calculated as 
+$x_{normalized} = \frac{x - Median(x_{pos})}{Median(x_{neg}) - Median(x_{pos})}$.
 
 
 ```{r,message=FALSE}
-screenData <- readScreen(rawDir = rawFolder, plateAnnotationFile = plateFile,
+screenData <- readScreen(rawDir = rawFolder, 
+                         plateAnnotationFile = plateFile,
                          wellAnnotationFile = wellFile, 
-                         rowRange = c(3,18), colRange = 2, 
+                         rowRange = c(3, 18), colRange = 2, 
                          sep = "[;\t]",
                          negWell <- c("DMSO","PBS"), posWell = c(),
-                         normalization = TRUE, method = "negatives", discardLayer = 2)
-head(screenData %>% dplyr::select(wellID, value, sampleID, name, concentration, wellType, normVal))
+                         normalization = TRUE, method = "negatives", 
+                         discardLayer = 2)
+head(screenData %>% 
+       dplyr::select(wellID, value, sampleID, drug, concentration, wellType, normVal))
 ```
 
-With "normalization = TRUE", a new column "normVal" is created exhibiting the normalized values. Of note, *readScreen()* allows discarding the exterior layer wells in order to mitigate the impacts of incubation effect on the negative controls. For instance, by specifying *discardLayer = 2*, the two outermost layer wells are excluded from control well calculations. *discardLayer = 0* indicates that no control wells are excluded.
+With "normalization = TRUE", a new column "normVal" is created containing the 
+normalized values. Of note, *readScreen()* allows discarding the exterior layer 
+wells in order to mitigate the impacts of incubation effect on the negative 
+controls. For instance, by specifying *discardLayer = 2*, the two outermost layer 
+wells are excluded from control well calculations. *discardLayer = 0* indicates 
+that no control wells are excluded.
 
-Inhibition rate can also be calculated later by using *normalizePlate()* function. In other words, reading in the screen data and normalization can be two separated steps. 
+Inhibition rate can also be calculated later by using *normalizePlate()* 
+function. In other words, reading in the screen data and normalization can 
+be two separated steps. 
 
 1. Read in the screen data without normalization ("normalization = FALSE").
 
@@ -223,27 +327,37 @@ screenData <- readScreen(rawDir = rawFolder, plateAnnotationFile = plateFile,
 
 ```{r}
 screenData <- normalizePlate(screenData, method = "negatives", discardLayer = 2)
-head(screenData %>% dplyr::select(wellID, value, sampleID, name, concentration, wellType, normVal))
+head(screenData %>% dplyr::select(wellID, value, sampleID, drug, 
+                                  concentration, wellType, normVal))
 
 ```
 
-The results one step procedure using *readScreen()* would be identical to the output of the two-step procedure by employing *readScreen* and *normalizePlate()*.
+The results one step procedure using *readScreen()* would be identical to the 
+output of the two-step procedure by employing *readScreen* and 
+*normalizePlate()*.
 
 # Quality control
 
 ## Raw count distribution
 
-The *DrugScreenExplorer* package provides several functions for quality control. We can use the *plotRawCount()* function to plot the distribution of the raw count (signal) of each plate, to check whether a certain plate has a strange behavior. 
+The *DrugScreenExplorer* package provides several functions for quality control. 
+We can use the *plotRawCount()* function to plot the distribution of the raw 
+count (signal) of each plate, to check whether a certain plate has a strange 
+behavior. 
 
 ```{r, fig.height =5, fig.width=6}
-g <- plotRawCount(screenData, ifLog10=TRUE)
+g <- plotRawCount(screenData, ifLog10 = TRUE)
 plot(g)
 ```
-The plot identifies the plate "P0007_12PB0265" having a lower overall counts.
+The plot identifies the plate "CTGLuminescence_P0010_16PB0066" having a lower 
+overall counts. 
 
 ## Raw count distribution for each well type
 
-If "wellType" column is available, *plotTypeDist()* function can visualize the raw count distribution by well types. The resulting plots can provided a rough check on whether the distribution is reasonable. For instance, negative controls usually have a higher raw counts  than the sample wells. 
+If "wellType" column is available, *plotTypeDist()* function can visualize the 
+raw count distribution by well types. The resulting plots can provided a rough 
+check on whether the distribution is reasonable. For instance, negative controls 
+usually have a higher raw counts than the sample wells. 
 
 ```{r, fig.height=8, fig.width=10}
 g <- plotTypeDist(screenData, ifLog10 = TRUE)
@@ -252,14 +366,23 @@ grid.arrange(grobs = g, ncol = 4)
 
 ## Plate heatmap plot
 
-A more straight forward way to check the screen quality is to plot the signal intensity heatmap for each screen. This can be easily achieved by employing the *platePlot()*. Heatmaps make it easy to identify screen artifacts, such as incubation effects. 
+A more straight forward way to check the screen quality is to plot the signal 
+intensity heatmap for each screen. This can be easily achieved by employing 
+the *platePlot()*. Heatmaps make it easy to identify screen artifacts, such as 
+incubation effects. 
 
 ```{r, fig.width = 6, fig.height = 4}
+
 g <- plotPlate(screenData = screenData, plotPlate = "all", plotType = "viability")
 grid.arrange(grobs = g[1:4], ncol = 2)
+
 ```
 
-*platePlot()* provides heatmap for three types information, namely, 'layout', 'zscore' and 'viability'. If *plotType = "viability"*, the normalized inhibition will be used for the heatmap, i.e the *normVal* column must be in the *screenData* object. Alternatively, *platePlot()* visualizes the Z-scores ($Z_i = (x_i - \hat{x})/ sd(x)$), if  *plotType = "zscore"* . 
+*platePlot()* provides heatmap for three types information, namely, 'layout', 
+'zscore' and 'viability'. For *plotType = "viability"*, the normalized 
+inhibition will be used for the heatmap, i.e the *normVal* column must be in 
+the *screenData* object. Alternatively, *platePlot()* visualizes the Z-scores 
+($Z_i = (x_i - \hat{x})/ sd(x)$), if *plotType = "zscore"* . 
 
 <!-- For unnormalized values, per-plate z-score can be used for heatmap plot. -->
 
@@ -268,7 +391,9 @@ g <- plotPlate(screenData = screenData, plotPlate = "all", plotType = "zscore")
 grid.arrange(grobs = g, ncol = 4)
 ```
 
-The *platePlot* function can also be used to plot the plate layout, by specifying the *type* parameter as "layout". The resulting plot provides an intuitive representation of the well types and their layout on the plate.
+The *platePlot* function can also be used to plot the plate layout, by 
+specifying the *type* parameter as "layout". The resulting plot provides an 
+intuitive representation of the well types and their layout on the plate.
 
 ```{r, fig.height = 8, fig.width = 10}
 g <- plotPlate(screenData = screenData, plotPlate = "all", plotType = "layout")
@@ -277,7 +402,10 @@ grid.arrange(grobs = g, ncol = 4)
 
 ## Automatic screen quality report
 
-An html Rmarkdown report on the screen quality can be automatically generated by using the *makeReport* function. Depend on the annotations included in the screen data tidy table, different quality check items will be included in the report.
+An html Rmarkdown report on the screen quality can be automatically generated 
+by using the *makeReport* function. Depend on the annotations included in the 
+screen data tidy table, different quality check items will be included in the 
+report.
 
 ```{r, eval = FALSE}
 makeReport(screenData = screenData, showCode = FALSE, 
@@ -286,11 +414,17 @@ makeReport(screenData = screenData, showCode = FALSE,
 ```
 
 An html file will be created in *report* folder under the working directory.   
-The information on more customizable options can be found at the manual page for *makeReport*
+The information on more customizable options can be found at the manual page 
+for *makeReport*
 
 # Adjusting incubation / edge effects
 
-From the plate heatmap plots above, we can observe obvious artifacts. For example, some wells in a certain region of a plate show significantly higher or lower signal intensity. This is known as the incubation effect. Those artifacts are typically caused by technical problems, like solvent evaporation, pipetting issues, etc.,. If those problematic wells are only located on the edge of the plate, it is also called the edge effect.  
+From the plate heatmap plots above, we can observe obvious artifacts. For 
+example, some wells in a certain region show significantly higher or lower 
+signal intensity. This is known as the incubation effect. Those artifacts 
+are typically caused by technical problems, like solvent evaporation, 
+pipetting issues, etc.,. If those problematic wells are only located on the 
+edge of the plate, it is also called the edge effect.  
 
 Plates show typical incubation effect and edge effect.
 
@@ -305,13 +439,22 @@ grid.arrange(grobs = g[c(2, 1)], ncol = 2)
 
 ```
 
-The left plate displays the edge effect, where wells located on the edge generally exhibit lower values compared to the middle well. The right plate demonstrates an incubation effect where the left half displays higher values than the right half.
+The left plate shows the edge effect, where wells located on the edge generally 
+exhibit lower values compared to the middle well. The right plate demonstrates 
+an incubation effect where the left half displays higher values than the right 
+half.
 
-DrugScreenExplorer package provides two functions *fitEdgeEffect* and *correctEdgeEffect* for estimating and correcting incubation effect or edge effect on the plate. 
+DrugScreenExplorer package provides two functions *fitEdgeEffect* and 
+*correctEdgeEffect* for estimating and correcting incubation effect or edge 
+effect on the plate. 
 
-*fitEdgeEffect* provides two methods for estimating the edge effects, namely **loess** and **sigmoid**. The former utilizes the local regression, while the latter uses a 2D-sigmoid model with well locations being the input values. 
+*fitEdgeEffect* provides two methods for estimating the edge effects, namely 
+**loess** and **sigmoid**. The former utilizes the local regression, while the 
+latter uses a 2D-sigmoid model with well locations being the input values. 
 
-Typically, we can firstly employ the **fitEdgeEffect()** function to assess the edge effects. After that, **correctEdgeEffect()** can be used to adjusted the inhibition values by removing the estimated edge effects. 
+Typically, we can firstly employ the **fitEdgeEffect()** function to assess the 
+edge effects. After that, **correctEdgeEffect()** can be used to adjusted the 
+inhibition values by removing the estimated edge effects. 
 
 
 ```{r}
@@ -320,24 +463,40 @@ subScreen <- fitEdgeEffect(subScreen, method = "loess", useNeg = TRUE,
 ```
 
 The estimated incubation effect will be stored in the *edgeFactor* column.  
-*useNeg = TRUE* means only negative control wells are used for incubation effect estimation. *useLowConcentrations = 1* means the lowest 1 concentration of the drugs is also considered as the *de facto* negative controls and used for incubation effect estimation. Please refer to the manual page for more explanations of the parameters.
+*useNeg = TRUE* means only negative control wells are used for incubation effect 
+estimation. *useLowConcentrations = 1* means the lowest 1 concentration of the 
+drugs is also considered as the *de facto* negative controls and used for 
+incubation effect estimation. Please refer to the manual page for more 
+explanations of the parameters.
 
-The incubation (edge) effect can be visualized using the *platePlot* function by specifying *plotType = "edgeEffect"*. 
+The incubation (edge) effect can be visualized using the *platePlot* function 
+by specifying *plotType = "edgeEffect"*. 
 
 ```{r, fig.width=10, fig.height=3}
 g <- plotPlate(subScreen, plotType = "edgeEffect")
 grid.arrange(grobs = g[c(2, 1)], ncol =2)
 ```
 
-The edge effects can be removed from the screen plate using *correctEdgeEffect()* function. 
+The edge effects can be removed from the screen plate using 
+*correctEdgeEffect()* function. 
 
 ```{r}
 subScreen <- correctEdgeEffect(subScreen, correctMethod = "bliss")
 ```
 
-*correctEdgeEffect()* provides two options for adjusting the edge effects: "bliss" and "linear". Bliss simply divides the normalized signal intensity by the estimated edge effect intensity. If linear is selected, the correction process will be smoothed by a linear function depends on the original normalized signal intensity. This option is suitable for the situation when the edge effect is very strong and results in instability in the correction process. In this example, the edge effect will be removed by Bliss drug combination model. The corrected value is stored in a new column *normVal.cor*. 
+*correctEdgeEffect()* provides two options for adjusting the edge effects: 
+"bliss" and "linear". Bliss simply divides the normalized signal intensity 
+by the estimated edge effect intensity. If linear is selected, the correction 
+process will be smoothed by a linear function depends on the original 
+normalized signal intensity. This option is suitable for the situation when 
+the edge effect is very strong and results in instability in the correction 
+process. In this example, the edge effect will be removed by Bliss drug 
+combination model. The corrected value is stored in a new column *normVal.cor*. 
 
-Currently, the estimation and correction of incubation effect can only be performed on normalized values The corrected values can also be visualized by *platePlot* function, by specifying *plotType = "viability"* and *ifCorrected = TRUE*
+Currently, the estimation and correction of incubation effect can only be 
+performed on normalized values The corrected values can also be visualized 
+by *platePlot* function, by specifying *plotType = "viability"* and 
+*ifCorrected = TRUE*
 
 ```{r, fig.width=10, fig.height=3}
 g <- plotPlate(subScreen, plotType = "viability", ifCorrected = TRUE)
@@ -346,37 +505,121 @@ grid.arrange(grobs = g, ncol =2)
 
 Now the incubation effect has been largely removed.
 
-
 **Adjust edge effect for the whole screening data**
 
 ```{r}
 screenData <- correctEdgeEffect(screenData, correctMethod = "bliss")
 ```
 
-Drug effects can be evaluated using the half-maximal inhibitory concentration (IC50). *DrugScreenExplorer* provides the *fitIC50()* function for calculating the IC50. *fitIC50* is developed from *dr4pl* package, where inhibitory concentration is derived by fitting a parameter logistic model. 
+Drug effects can be evaluated using the half-maximal inhibitory concentration 
+(IC50). *DrugScreenExplorer* provides the *fitIC50()* function for calculating 
+the IC50. *fitIC50* is developed from *dr4pl* package, where inhibitory 
+concentration is derived by fitting a parameter logistic model. 
 
 # Summarisation of drug effect
 
-```{r}
-screenData <- summariseScreen(screenData, method = c("average","AUC"))
+```{r, fig.height = 8, fig.width = 8}
+screenData <- summariseScreen(screenData, method = c("average", "AUC"))
+
+sumDat <- screenData %>% 
+  select(sampleID, drug, meanViab, AUC) %>% 
+  distinct(sampleID, drug, .keep_all = TRUE) %>% 
+  pivot_longer(cols = c("meanViab", "AUC"),
+               names_to = "method") %>% 
+  na.omit()
+
+ggplot(sumDat, aes(x = drug, y = value)) + 
+  geom_boxplot(fill = "#7FFFD4") + 
+  coord_flip() + 
+  theme_bw() + 
+  xlab("") + 
+  facet_grid( ~ method)
+  
 ```
 
+# Extension to two-drug combination
+
+```{r}
+
+plateFile <- system.file("testData/plateAnnoCombine/plateAnnoCombine.tsv",
+                         package = "DrugScreenExplorer")
+
+wellFile  <- system.file("testData/wellAnnoCombine/wellAnnoCombine.tsv",
+                         package = "DrugScreenExplorer")
+
+rawFolder <- system.file("testData/rawDataCombine", 
+                         package = "DrugScreenExplorer")
+
+screenData <- readScreen(rawDir = rawFolder, 
+                         plateAnnotationFile = plateFile,
+                         wellAnnotationFile = wellFile, 
+                         rowRange = c(7, 22), colRange = 2, 
+                         sep = ",",
+                         negWell = c("DMSO_DMSO"), posWell = c(),
+                         normalization = TRUE)
+head(screenData)
+
+
+```
+
+```{r, fig.height = 3, fig.width=6}
+g <- plotRawCount(screenData, ifLog10 = TRUE)
+plot(g)
+```
+
+
+```{r, fig.width = 6, fig.height = 4}
+g <- plotPlate(screenData = screenData, plotPlate = "all", plotType = "zscore")
+grid.arrange(grobs = g, ncol = 2)
+```
+
+
+```{r, fig.height = 2.5, fig.width=10}
+g <- plotTypeDist(screenData, ifLog10 = TRUE)
+grid.arrange(grobs = g, ncol = 4)
+```
+
+## Plate heatmap plot
+
+A more straight forward way to check the screen quality is to plot the signal 
+intensity heatmap for each screen. This can be easily achieved by employing 
+the *platePlot()*. Heatmaps make it easy to identify screen artifacts, such 
+as incubation effects. 
+
+```{r, fig.width = 6, fig.height = 4}
+
+g <- plotPlate(screenData = screenData, plotPlate = "all", plotType = "viability")
+grid.arrange(grobs = g[1:4], ncol = 2)
+
+```
+```{r, fig.height = 4, fig.width = 6}
+g <- plotPlate(screenData = screenData, plotPlate = "all", plotType = "layout")
+grid.arrange(grobs = g, ncol = 2)
+```
 
 # Interactive data exploration using Shiny app
 
 Prepare data set for shiny app
 
-```{r, eval=FALSE}
-makeShiny(screenData, sampleAnnotations = c("batch","sampleID","patientID","Mutation","Expression","Group"))
+```{r, eval = FALSE}
+makeShiny(screenData, 
+          sampleAnnotations = c("batch","sampleID","patientID","
+                                Mutation","Expression","Group"))
 ```
-The functions avaialbe for the shiny app will be dependent on the sample annotations provided by the user.   
-
+The functions avaialbe for the shiny app will be dependent on the sample 
+annotations provided by the user.   
 **Run shiny app**
 
-The shiny app can be excuted through running "app.R" under "shiny" folder. 
+An R Shiny application was developed based on the analysis tools in the 
+*DrugScreenExplorer* package, enabling users of all technical backgrounds 
+to perform comprehensive drug screen analyses through an interactive web 
+interface. The application can be launched using the *runShiny()* or *makeShiny()* 
+functions. For detailed instructions on using the R Shiny application, please 
+refer to the package vignette. 
 
-
-
-
+# SessionInfo
+```{r}
+sessionInfo()
+```
 
 

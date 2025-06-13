@@ -2,11 +2,12 @@
 % Please edit documentation in R/summariseScreenCombine.R
 \name{summariseScreenCombination}
 \alias{summariseScreenCombination}
-\title{Summarize drug combination effects across concentrations}
+\title{Summarize drug combination effects across concentrations for two-drug
+combination}
 \usage{
 summariseScreenCombination(
   screenData,
-  negDrug = c("DMSO"),
+  negDrug,
   method = c("bliss", "bayesynergy")
 )
 }
@@ -19,7 +20,9 @@ the effects of a single drug, if the drug is combined with the negative drug.}
 
 \item{method}{a character string specifying the method to summarize the
 synergy or antagonism effects. Currently, There are two methods available:
-bliss and bayesynergy.}
+bliss and bayesynergy. Please install bayesynergy package from
+github (https://github.com/ocbe-uio/bayesynergy) manually, if bayesynergy
+method is selected.}
 }
 \value{
 The function returns a data frame.
@@ -49,6 +52,5 @@ data(screenData_combine_normalized)
 summariseScreenCombination(screenData_combine_normalized,
                            negDrug = "DMSO",
                            method = "bliss")
-
-Please see the vignette for more information.
+# Please see the vignette for more information.
 }

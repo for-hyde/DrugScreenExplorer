@@ -2,18 +2,22 @@
 % Please edit documentation in R/sumIC50.R
 \name{sumIC50}
 \alias{sumIC50}
-\title{Summarize drug effect across concentrations using a 4-parameter log-logistic model}
+\title{Summarize drug effect across concentrations using a 4-parameter log-logistic
+model}
 \usage{
 sumIC50(formula, data = NULL, minConc = 0, maxConc = 15, n = 100, ...)
 }
 \arguments{
 \item{formula}{formula for the curve fitting.}
 
-\item{data}{a data frame containing the raw concentration and the viability value.}
+\item{data}{a data frame containing the raw concentration and the viability
+value.}
 
-\item{minConc}{lower bound of concentrations for the integration of area under curve.}
+\item{minConc}{lower bound of concentrations for the integration of area
+under curve.}
 
-\item{maxConc}{upper bound of concentrations for the integration of area under curve.}
+\item{maxConc}{upper bound of concentrations for the integration of area
+under curve.}
 
 \item{n}{number of bins for integration.}
 
@@ -23,14 +27,17 @@ sumIC50(formula, data = NULL, minConc = 0, maxConc = 15, n = 100, ...)
 a dataframe with only one row and four columns:
 \item{UpperLimit}{the upper limit of the fitted logistic model}
 \item{IC50}{the half maximal inhibitory concentration (IC50),
-or the half maximal effective concentration (EC50), depends on the type of input data}
+or the half maximal effective concentration (EC50), depends on the type of
+input data}
 \item{Slope}{the slope of the fitted logistic model}
 \item{lowerLimit}{the upper limit of the fitted logistic model}
 \item{AUC}{the area under the fitted sigmoid doese-response curve}
 If the model fitting is failed, all values in the dataframe will be NA.
 }
 \description{
-This function will fit a 4-parameter log-logistic model using dr4pl package based on the input dose-response table and return the model parameters as well as integrated area under the fitted sigmoid curve.
+This function will fit a 4-parameter log-logistic model using dr4pl package
+based on the input dose-response table and return the model parameters as
+well as integrated area under the fitted sigmoid curve.
 }
 \examples{
 # create an example dose-response table

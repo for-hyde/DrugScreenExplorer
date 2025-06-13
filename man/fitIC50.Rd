@@ -7,28 +7,34 @@
 fitIC50(formula, data = NULL, weights = NULL, logDose = NULL, ...)
 }
 \arguments{
-\item{formula}{formula for the curve fitting in the form of 'response ~ concentration'.}
+\item{formula}{formula for the curve fitting in the form of
+'response ~ concentration'.}
 
-\item{data}{a data frame that contains concentration values and normalized viability values or percent inhibition values.}
+\item{data}{a data frame that contains concentration values and normalized
+viability values or percent inhibition values.}
 
 \item{weights}{not used, mainly for geom_smooth() purpose.}
 
-\item{logDose}{a numeric value indicates the base of a log function if concentrations have been log-transformed.
+\item{logDose}{a numeric value indicates the base of a log function if
+concentrations have been log-transformed.
 The argument will transform the concentrations back.
 The default value is NULL (indicating no log transformation has been applied).}
 
-\item{...}{further arguments to be passed to \textit{dr4pl} function in \textit{dr4pl} package.}
+\item{...}{further arguments to be passed to dr4pl function in dr4pl package.}
 }
 \value{
-fitIC50 returns an object of class 'fitIC50', which is a list containing the following components:
+fitIC50 returns an object of class 'fitIC50', which is a list
+containing the following components:
 \item{model}{the input dose-response table}
 \item{formula}{the formula used for the model fitting}
 \item{parm_fit}{the fitted parameters for a 4-paramater logistic model}
-\item{logDose}{a numeric value specifying the base of log transformation for concentration,
-if the concentration is log transformed. The default value is NULL (not log transformed).}
+\item{logDose}{a numeric value specifying the base of log transformation
+for concentration, if the concentration is log transformed. The default
+value is NULL (not log transformed).}
 }
 \description{
-Use the dr4pl package to perform IC50 curve fitting. The outputs can be directly used for geom_smooth() in ggplot2.
+Use the dr4pl package to perform IC50 curve fitting. The outputs can be
+directly used for geom_smooth() in ggplot2.
 }
 \examples{
 # create an example dose-response table

@@ -52,30 +52,13 @@ readPlate <- function(plateFile,
     if (allowNA) {
       warning("NA values detected in plate")
     } else {
-      stop("NA values detected in plate. If NA values should be allowed, please set the 'allowNA = TRUE'")
+      stop("NA values detected in plate.
+           If NA values should be allowed, please set the 'allowNA = TRUE'")
     }
   }
 
   return(df)
 }
-
-#
-
-# comb2single <- function(screenData,
-#                         negDrug = c("DMSO"),
-#                         method = c("average", "AUC", "IC50")) {
-#
-#   # more check
-#   singleDrug <- filter(screenData,
-#                        (drug %in% negDrug) + (drug2 %in% negDrug) == 1) %>%
-#     mutate(drug = ifelse(drug %in% negDrug, drug2, drug),
-#            concentration = ifelse(drug %in% negDrug, concentration2,
-#                                   concentration)) %>%
-#     select(-c("drug2", "concentration2"))
-#
-#   summariseScreen(singleDrug, method = c("average", "AUC", "IC50"))
-# }
-
 
 ## Function to make pdf for a list of ggplot objects
 makepdf <- function(x, name, ncol = 3, nrow = 2, width = 20, height = 12) {
@@ -101,7 +84,8 @@ genRowIDs <- function(x) {
   if (x > 702)
     stop("Rows exceeds maximal supported number (n=702)")
 
-  allID <- c(paste0(LETTERS, 0), paste0(rep(LETTERS, each = 26), rep(LETTERS, times = 26)))
+  allID <- c(paste0(LETTERS, 0),
+             paste0(rep(LETTERS, each = 26), rep(LETTERS, times = 26)))
 
   return(allID[seq(1, x)])
 }
@@ -112,11 +96,16 @@ genColIDs <- function(x) {
 }
 
 ## Function for fitting edge effect using loess local regression method
-fitOneLoess <- function(plateData, useNeg, useLowConcentrations, lowConcTab, span) {
+fitOneLoess <- function(plateData,
+                        useNeg,
+                        useLowConcentrations,
+                        lowConcTab,
+                        span) {
 
   # select 'de facto' negative controll wells for surface fitting
   if (!useNeg) {
-    fitIn <- plateData[!plateData$wellType %in% "pos", ]  #do not use positive controls
+    #do not use positive controls
+    fitIn <- plateData[!plateData$wellType %in% "pos", ]
   } else {
 
     if (!"wellType" %in% colnames(plateData))
@@ -125,12 +114,15 @@ fitOneLoess <- function(plateData, useNeg, useLowConcentrations, lowConcTab, spa
     if (useLowConcentrations > 0) {
 
       # lowest concentrations are also used for fitting
-      lowConc <- paste0(lowConcTab$name, "_", lowConcTab$concentration)
-      lowConcWell <- plateData[paste0(plateData$name, "_", plateData$concentration) %in% lowConc, ]$wellID
+      lowConc <- paste0(lowConcTab$drug, "_", lowConcTab$concentration)
+      lowConcWell <-
+        plateData[paste0(plateData$drug, "_", plateData$concentration)
+                  %in% lowConc, ]$wellID
 
     } else lowConcWell <- c()
 
-    fitIn <- plateData[plateData$wellType %in% "neg" | plateData$wellID %in% lowConcWell, ]
+    fitIn <- plateData[plateData$wellType %in% "neg" |
+                         plateData$wellID %in% lowConcWell, ]
   }
 
   # fit the surface using loess model
@@ -169,16 +161,19 @@ getIniParm <- function(fitIn) {
 
 #function for 2D sigmoid curv-fitting
 esFun <- function(data, par) {
-  with(data, sum(((normVal - (1 + (par[1] - 1)/(1 + exp((numRowID - par[5])/par[9])) -
-                                par[2] + par[2]/(1 + exp((numRowID - par[6])/par[10]))) *
-                     (1 + (par[3] - 1)/(1 + exp((numColID - par[7])/par[11])) -
-                        par[4] + par[4]/(1 + exp((numColID - par[8])/par[12])))))^2))
+  with(data,
+       sum(((normVal - (1 + (par[1] - 1)/(1 + exp((numRowID - par[5])/par[9])) -
+                          par[2] + par[2]/(1 + exp((numRowID - par[6])/par[10]))) *
+               (1 + (par[3] - 1)/(1 + exp((numColID - par[7])/par[11])) -
+                  par[4] + par[4]/(1 + exp((numColID - par[8])/par[12])))))^2))
 }
 
 #function for predict values based on 2D sigmoid model
 predictFun <- function(numRowID, numColID, par) {
-  (1 + (par[1] - 1)/(1 + exp((numRowID - par[5])/par[9])) - par[2] + par[2]/(1 + exp((numRowID - par[6])/par[10]))) *
-    (1 + (par[3] - 1)/(1 + exp((numColID - par[7])/par[11])) - par[4] + par[4]/(1 + exp((numColID - par[8])/par[12])))
+  (1 + (par[1] - 1)/(1 + exp((numRowID - par[5])/par[9])) - par[2] +
+     par[2]/(1 + exp((numRowID - par[6])/par[10]))) *
+    (1 + (par[3] - 1)/(1 + exp((numColID - par[7])/par[11])) - par[4] +
+       par[4]/(1 + exp((numColID - par[8])/par[12])))
 }
 
 ## Function for fitting edge effect using 2D sigmoid model (experimental feature)
@@ -189,17 +184,20 @@ fitOneSigmoid <- function(plateData, useNeg, useLowConcentrations, lowConcTab) {
 
   # select 'de facto' negative control wells for surface fitting
   if (!useNeg) {
-    fitIn <- plateData[!plateData$wellType %in% "pos", ]  #do not use positive controls
-
+    #do not use positive controls
+    fitIn <- plateData[!plateData$wellType %in% "pos", ]
   } else {
     if (useLowConcentrations > 0) {
       # lowest concentrations are also used for fitting
-      lowConc <- paste0(lowConcTab$name, "_", lowConcTab$concentration)
-      lowConcWell <- plateData[paste0(plateData$name, "_", plateData$concentration) %in% lowConc, ]$wellID
+      lowConc <- paste0(lowConcTab$drug, "_", lowConcTab$concentration)
+      lowConcWell <-
+        plateData[paste0(plateData$drug, "_",
+                         plateData$concentration) %in% lowConc, ]$wellID
 
     } else lowConcWell <- c()
 
-    fitIn <- plateData[plateData$wellType %in% "neg" | plateData$wellID %in% lowConcWell, ]
+    fitIn <- plateData[plateData$wellType %in% "neg" |
+                         plateData$wellID %in% lowConcWell, ]
   }
 
   paraIni <- getIniParm(fitIn)
@@ -208,7 +206,8 @@ fitOneSigmoid <- function(plateData, useNeg, useLowConcentrations, lowConcTab) {
     sig2D <- optim(par = paraIni, esFun, data = fitIn)
     predictFun(plateData$numRowID, plateData$numColID, sig2D$par)
   }, error = function(err) {
-    warning("Edge effect estimate using 2D-sigmoid model failed. Set edgeEffect value to 1")
+    warning("Edge effect estimate using 2D-sigmoid model failed.
+            Set edgeEffect value to 1")
     rep(1, nrow(plateData))
   })
 
@@ -248,8 +247,8 @@ calcAUC <- function(value, conc, viabCut = NULL) {
   }
 }
 
-# Function to correct edge effect using a specialized linear model, to fix issue of over correcting of bliss model. This
-# is only an experimental function
+# Function to correct edge effect using a specialized linear model, to fix
+# issue of over correcting of bliss model. This is only an experimental function
 
 corEdgeLinear <- function(x, m) {
 
@@ -281,19 +280,23 @@ estimateOnePlate <- function(plateData, nLayer, onlyNeg) {
     edgeRow <- genRowIDs(nRow)[c(seq(1, nLayer), seq(nRow - nLayer + 1, nRow))]
   }
 
-  edgeWell <- dplyr::filter(plateData, colID %in% edgeCol, rowID %in% edgeRow) %>%
+  edgeWell <-
+    dplyr::filter(plateData, colID %in% edgeCol, rowID %in% edgeRow) %>%
     dplyr::select(wellID, value, wellType)
   innerWell <- dplyr::filter(plateData, !wellID %in% edgeWell$wellID)
 
   if (onlyNeg) {
-    # only use negative control wells, check wether they are present in edge and innel wells
+    # only use negative control wells, check whether they are present in edge
+    # and innel wells
     if (!"neg" %in% edgeWell$wellType)
       stop("No negative control wells found on the edge.")
     if (!"neg" %in% innerWell$wellType)
       stop("No negative control wells found on the inner plate")
-    edgeFac <- median(edgeWell$value, na.rm=TRUE)/median(innerWell$value, na.rm = TRUE)
+    edgeFac <-
+      median(edgeWell$value, na.rm=TRUE) / median(innerWell$value, na.rm = TRUE)
   } else {
-    edgeFac <- median(edgeWell$value, na.rm=TRUE)/median(innerWell$value, na.rm = TRUE)
+    edgeFac <-
+      median(edgeWell$value, na.rm=TRUE) / median(innerWell$value, na.rm = TRUE)
   }
 
   edgeFac
@@ -338,13 +341,16 @@ plotViability <- function(matPlate, plateList, limits, ifCorrected) {
   if (!"normVal" %in% colnames(matPlate))
     stop("Plate should be normalized")
 
-  matPlate <- dplyr::mutate(matPlate,
-                            normVal = ifelse(normVal < limits[1], limits[1],
-                                             ifelse(normVal > limits[2], limits[2], normVal)))
+  matPlate <-
+    dplyr::mutate(matPlate,
+                  normVal = ifelse(
+                    normVal < limits[1], limits[1],
+                    ifelse(normVal > limits[2], limits[2], normVal)))
 
   if (ifCorrected) {
     if (!"normVal.cor" %in% colnames(matPlate)) {
-      stop("No edge-corrected viability found, please run edge effect correction first")
+      stop("No edge-corrected viability found,
+           please run edge effect correction first")
     } else {
       matPlate <- dplyr::mutate(matPlate, normVal = normVal.cor)
     }
@@ -377,7 +383,9 @@ plotViability <- function(matPlate, plateList, limits, ifCorrected) {
 plotZscore <- function(matPlate, plateList, limits) {
 
   # calculate per-plate z-score
-  calcZ <- function(x) dplyr::mutate(x, zscore = (value - mean(value))/sd(value))
+  calcZ <- function(x)
+    dplyr::mutate(x, zscore = (value - mean(value))/sd(value))
+
   matPlate <- group_by(matPlate, fileName) %>%
     do(calcZ(.)) %>%
     ungroup()
@@ -387,9 +395,10 @@ plotZscore <- function(matPlate, plateList, limits) {
   }
 
   # censoring value based on limit
-  matPlate <- dplyr::mutate(matPlate,
-                            zscore = ifelse(zscore < limits[1], limits[1],
-                                            ifelse(zscore > limits[2], limits[2], zscore)))
+  matPlate <-
+    dplyr::mutate(matPlate,
+                  zscore = ifelse(zscore < limits[1], limits[1],
+                                  ifelse(zscore > limits[2], limits[2], zscore)))
 
   plotList <- lapply(plateList, function(plateName) {
     p <- dplyr::filter(matPlate, fileName == plateName) %>%
@@ -426,9 +435,11 @@ plotEdgeEffect <- function(matPlate, plateList, limits) {
     limits <- c(0, 2)
   }
 
-  matPlate <- dplyr::mutate(matPlate,
-                            normVal = ifelse(normVal < limits[1], limits[1],
-                                             ifelse(normVal > limits[2], limits[2], normVal)))
+  matPlate <-
+    dplyr::mutate(matPlate,
+                  normVal =
+                    ifelse(normVal < limits[1], limits[1],
+                           ifelse(normVal > limits[2], limits[2], normVal)))
 
   plotList <- lapply(plateList, function(plateName) {
 
@@ -453,6 +464,4 @@ plotEdgeEffect <- function(matPlate, plateList, limits) {
 
   return(plotList)
 }
-
-
 

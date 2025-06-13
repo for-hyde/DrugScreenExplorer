@@ -12,33 +12,60 @@ normalizePlate(
 )
 }
 \arguments{
-\item{screenData}{a data frame that contains the output from the \code{readScreen()} function.}
+\item{screenData}{a data frame that contains the output from the
+\code{readScreen()} function.}
 
-\item{discardLayer}{an integer value. To avoid the impact of incubation effect on the negative controls,
-a certain number of the exterior layers on the plate can be ignored when calculating the median of control wells.
+\item{method}{a character string, either 'negatives' or 'NPI', specifying
+the method of per-plate normalization.
+If 'negatives', the raw signals on the plate will be divided by the median
+signal intensity of negative control wells on the same plate
+\eqn{x_{normalized} = x / Median(x_{neg})}.
+If 'NPI', a 'normalized percent inhibition (NPI)' is applied in a per-plate
+basis.
+NPI measures the extent to which the signal of interest is diminished
+compared to a positive control:
+\eqn{x_{normalized} = (x - Median(x_{pos}))/(Median(x_{neg}) - Median(x_{pos}))}.
+The default value is 'negatives'.}
+
+\item{discardLayer}{an integer value. To avoid the impact of incubation
+effect on the negative controls,
+a certain number of the exterior layers on the plate can be ignored when
+calculating the median of control wells.
 0 means do not discard any control wells.}
 
-\item{bySample}{a logical value, indicates whether normalized the viability by sample rather than by plate.
+\item{bySample}{a logical value, indicates whether normalized the viability
+by sample rather than by plate.
 This is for the situation that multiple samples are on the same plate.}
 }
 \value{
-This function will add one column, \code{normVal}, which is the normalized viability based on user-specified normalization method, to the input data frame.
+This function will add one column, \code{normVal}, which is the normalized
+viability based on user-specified normalization method, to the input
+data.frame.
 }
 \description{
-This function calculates the percent inhibition or normalized viability values for each plate based on the control wells on the same plate.
+This function calculates the percent inhibition or normalized viability values
+for each plate based on the control wells on the same plate.
 }
 \examples{
-rawFolder <- system.file('testData/rawData', package = 'DrugScreenExplorer')
-plateFile <- system.file('testData/plateAnno/plateAnno.tsv', package = 'DrugScreenExplorer')
-wellFile <- system.file('testData/wellAnno/wellAnno.tsv', package = 'DrugScreenExplorer')
+rawFolder <- system.file('testData/rawData',
+                          package = 'DrugScreenExplorer')
+plateFile <- system.file('testData/plateAnno/plateAnno.tsv',
+                         package = 'DrugScreenExplorer')
+wellFile <- system.file('testData/wellAnno/wellAnno.tsv',
+                         package = 'DrugScreenExplorer')
 # Read in screen data without normalization
-screenData <- readScreen(rawDir = rawFolder, plateAnnotationFile = plateFile,
-    wellAnnotationFile = wellFile,
-    rowRange = c(3,18), colRange = 2,
-    sep = '[;\t]',
-    negWell <- c('DMSO','PBS'), posWell = c(),
-    normalization = FALSE)
+screenData <- readScreen(rawDir = rawFolder,
+                         plateAnnotationFile = plateFile,
+                         wellAnnotationFile = wellFile,
+                         rowRange = c(3,18),
+                         colRange = 2,
+                         sep = '[;\t]',
+                         negWell = c('DMSO','PBS'),
+                         posWell = c(),
+                         normalization = FALSE)
 
 # Perform a normalization step separately
-screenData <- normalizePlate(screenData, method = 'negatives', discardLayer = 2)
+screenData <- normalizePlate(screenData,
+                             method = 'negatives',
+                             discardLayer = 2)
 }

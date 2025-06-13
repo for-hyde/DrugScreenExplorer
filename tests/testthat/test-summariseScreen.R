@@ -1,13 +1,18 @@
 load("testData/expectedOutput/summarisedData.RData")
 
-testSumData_average <- summariseScreen(screenSub, method = "average")
-testSumData_AUC <- summariseScreen(screenSub, method = "AUC")
-testSumData_AUC_corr <- summariseScreen(screenSub_edgeCorr, method = "AUC")
+testSumData_average <-
+  suppressWarnings(summariseScreen(screenSub, method = "average"))
+testSumData_AUC <-
+  suppressWarnings(summariseScreen(screenSub, method = "AUC"))
+testSumData_AUC_corr <-
+  suppressWarnings(summariseScreen(screenSub_edgeCorr, method = "AUC"))
+testSumData_IC50 <-
+  suppressWarnings(summariseScreen(screenSub_edgeCorr, method = "IC50"))
 
-testSumData_IC50 <- summariseScreen(screenSub_edgeCorr, method = "IC50")
-
-testFitRes1 <- sumIC50(normVal ~ concentration, tabDose1)
-testFitRes2 <- sumIC50(normVal ~ concentration, tabDose2)
+testFitRes1 <-
+  suppressWarnings(sumIC50(normVal ~ concentration, tabDose1))
+testFitRes2 <-
+  suppressWarnings(sumIC50(normVal ~ concentration, tabDose2))
 
 test_that("Summarise screen use averaged viability", {
   expect_equal(sumData_average, testSumData_average)

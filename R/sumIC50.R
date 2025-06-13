@@ -1,19 +1,27 @@
 
-#' Summarize drug effect across concentrations using a 4-parameter log-logistic model
+#' Summarize drug effect across concentrations using a 4-parameter log-logistic
+#' model
 #'
-#' This function will fit a 4-parameter log-logistic model using dr4pl package based on the input dose-response table and return the model parameters as well as integrated area under the fitted sigmoid curve.
+#' This function will fit a 4-parameter log-logistic model using dr4pl package
+#' based on the input dose-response table and return the model parameters as
+#' well as integrated area under the fitted sigmoid curve.
+#'
 #' @param formula formula for the curve fitting.
-#' @param data a data frame containing the raw concentration and the viability value.
-#' @param minConc lower bound of concentrations for the integration of area under curve.
-#' @param maxConc upper bound of concentrations for the integration of area under curve.
+#' @param data a data frame containing the raw concentration and the viability
+#' value.
+#' @param minConc lower bound of concentrations for the integration of area
+#' under curve.
+#' @param maxConc upper bound of concentrations for the integration of area
+#' under curve.
 #' @param n number of bins for integration.
 #' @param ... further arguments to be passed to dr4pl function.
 #' @export sumIC50
-#' @import dr4pl
+#' @importFrom dr4pl dr4pl
 #' @return a dataframe with only one row and four columns:
 #' \item{UpperLimit}{the upper limit of the fitted logistic model}
 #' \item{IC50}{the half maximal inhibitory concentration (IC50),
-#' or the half maximal effective concentration (EC50), depends on the type of input data}
+#' or the half maximal effective concentration (EC50), depends on the type of
+#' input data}
 #' \item{Slope}{the slope of the fitted logistic model}
 #' \item{lowerLimit}{the upper limit of the fitted logistic model}
 #' \item{AUC}{the area under the fitted sigmoid doese-response curve}
@@ -27,7 +35,11 @@
 #' # get the parameters
 #' sumIC50(viability ~ concentration, data = doseTab)
 
-sumIC50 <- function(formula, data = NULL, minConc = 0, maxConc = 15, n = 100, ...) {
+sumIC50 <- function(formula,
+                    data = NULL,
+                    minConc = 0,
+                    maxConc = 15,
+                    n = 100, ...) {
 
   res <- tryCatch({
 
@@ -41,13 +53,15 @@ sumIC50 <- function(formula, data = NULL, minConc = 0, maxConc = 15, n = 100, ..
     aucVal <- calcAUC(valueConc$viab, valueConc$conc)
 
     data.frame(t(structure(c(as.numeric(mm$parm_fit$parameters), aucVal),
-                           names = c("UpperLimit", "IC50", "Slope", "LowerLimit", "AUC"))))
+                           names = c("UpperLimit", "IC50", "Slope", "LowerLimit",
+                                     "AUC"))))
 
 
   }, error = function(err) {
     warning("Curve fitting failed, NA values generated. ")
     data.frame(t(structure(rep(NA, 5),
-                           names = c("UpperLimit", "IC50", "Slope", "LowerLimit", "AUC"))))
+                           names = c("UpperLimit", "IC50", "Slope", "LowerLimit",
+                                     "AUC"))))
   })
 
   return(res)

@@ -1,0 +1,17 @@
+
+citHeader("To cite the DrugScreenExplorer package in publications use:")
+
+citEntry(entry = "Manual",  
+         title = "DrugScreenExplorer: A pipeline for processing drug sensitivity screen data",
+         author = personList(person(given="Shuo",  family="Wang"),
+                             person(given="Junyan",  family="Lu")),
+  year = "2025",
+  note = "R package version 4.4.0",
+  url = "https://bioconductor.org/packages/DrugScreenExplorer"
+  organization = {Bioconductor},
+  textVersion = paste("Shuo Wang, Junyan Lu",
+					  "DrugScreenExplorer: A pipeline for processing drug sensitivity screen data",
+					  "R package version 4.4.0",
+                      "https://bioconductor.org/packages/DrugScreenExplorer"))
+
+

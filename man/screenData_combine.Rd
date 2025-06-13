@@ -11,7 +11,8 @@ an object of "tbl_df" (tidy table)
 data(screenData_combine)
 }
 \description{
-This is an example drug screen dataset for two-drug combination processed by \code{readScreen()} function.
+This is an example drug screen dataset for two-drug combination processed
+by \code{readScreen()} function.
 }
 \examples{
 data(screenData_normalized)

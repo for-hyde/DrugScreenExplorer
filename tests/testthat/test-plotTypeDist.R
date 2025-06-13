@@ -4,9 +4,8 @@
 
 test_that("plotTypeDist", {
 
-  data('screenData')
+  data(screenData)
   output <- plotTypeDist(screenData)
-
   expect_true(is(output[[1]], "ggplot"))
 
 })

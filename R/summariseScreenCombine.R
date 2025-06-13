@@ -1,5 +1,6 @@
 #'
-#' Summarize drug combination effects across concentrations
+#' Summarize drug combination effects across concentrations for two-drug
+#' combination
 #'
 #'\code{summariseScreenCombination()} function summarizes the synergy or
 #'antagonism effects of two-drug combination. The summary is based on
@@ -15,9 +16,9 @@
 #' the effects of a single drug, if the drug is combined with the negative drug.
 #' @param method a character string specifying the method to summarize the
 #'  synergy or antagonism effects. Currently, There are two methods available:
-#'  bliss and bayesynergy.
-#'
-#' @import bayesynergy
+#'  bliss and bayesynergy. Please install bayesynergy package from
+#'  github (https://github.com/ocbe-uio/bayesynergy) manually, if bayesynergy
+#'  method is selected.
 #' @export summariseScreenCombination
 #'
 #' @return
@@ -39,11 +40,11 @@
 #' summariseScreenCombination(screenData_combine_normalized,
 #'                            negDrug = "DMSO",
 #'                            method = "bliss")
-#'
-#' Please see the vignette for more information.
+#' # Please see the vignette for more information.
+
 
 summariseScreenCombination <- function(screenData,
-                                       negDrug = c("DMSO"),
+                                       negDrug,
                                        method = c("bliss", "bayesynergy")) {
 
   # transform to single drug screen
@@ -54,12 +55,24 @@ summariseScreenCombination <- function(screenData,
          Plate normalization should be performed first")
   }
 
+  # add check on negDrug
+  # negative should be in the drug or drug2
+  if(!negDrug %in% unique(c(screenData$drug, screenData$drug2))){
+    stop("negDrug should be one of drug or drug2")
+  }
+
+  if(length(negDrug) > 1){
+    stop("Only one negDrug is allowed")
+  }
+
+
   # check if the 'normVal.cor' column is present
   ifCor <- "normVal.cor" %in% colnames(screenData)
 
   # only summarize the non-control wells
   subData <- dplyr::filter(screenData, wellType %in% "sample")
-  # method <- match.arg(method, c("bliss", "bayesynergy"))
+  method <- match.arg(method, c("bliss", "bayesynergy"))
+
 
   # Using bliss
   if ("bliss" %in% method) {
@@ -67,10 +80,11 @@ summariseScreenCombination <- function(screenData,
     # bliss method
     if (!ifCor) {
 
-      comTab <- filter(subData, !drug %in% negDrug, !drug2 %in% negDrug) %>%
+      comTab <- filter(subData, drug != negDrug, drug2 != negDrug) %>%
         select(sampleID, drug, concentration, drug2, concentration2, normVal) %>%
         dplyr::rename(viabObs = normVal) %>%
-        distinct(sampleID, drug, concentration, drug2, concentration2, .keep_all = TRUE)
+        distinct(sampleID, drug, concentration, drug2, concentration2,
+                 .keep_all = TRUE)
 
       # drug
       drugTab <- filter(subData, drug != negDrug, drug2 == negDrug) %>%
@@ -98,11 +112,12 @@ summariseScreenCombination <- function(screenData,
 
     if (ifCor) {
 
-      comTab <- filter(subData, !drug %in% negDrug, !drug2 %in% negDrug) %>%
-        select(sampleID, drug, concentration, drug2, concentration2,
-               normVal, normVal.cor) %>%
+      comTab <- filter(subData, drug != negDrug, drug2 != negDrug) %>%
+        select(sampleID, drug, concentration,
+               drug2, concentration2, normVal, normVal.cor) %>%
         dplyr::rename(viabObs = normVal, viabObs.cor = normVal.cor) %>%
-        distinct(sampleID, drug, concentration, drug2, concentration2, .keep_all = TRUE)
+        distinct(sampleID, drug, concentration, drug2,
+                 concentration2, .keep_all = TRUE)
 
       # drug
       drugTab <- filter(subData, drug != negDrug, drug2 == negDrug) %>%
@@ -136,6 +151,11 @@ summariseScreenCombination <- function(screenData,
 
   if ("bayesynergy" %in% method) {
 
+    if (!"bayesynergy" %in% installed.packages()[,"Package"]){
+      stop("Please install bayesynergy package manually
+           from Github: https://github.com/ocbe-uio/bayesynergy")
+    }
+
     allPair <- distinct(subData, sampleID, drug, drug2) %>%
       filter((!drug %in% negDrug) & (!drug2 %in% negDrug))
 
@@ -149,17 +169,19 @@ summariseScreenCombination <- function(screenData,
         select(sampleID, drug, drug2, concentration, concentration2, normVal)
 
       # inputs for synergyscreen function
-      allInput[[i]] <- list(y = as.matrix(subTab[ ,"normVal"]),
-                            x = as.matrix(subTab[ ,c("concentration", "concentration2")]),
-                            drug_names = subIndex[2:3],
-                            experiment_ID = subIndex[1])
+      allInput[[i]] <-
+        list(y = as.matrix(subTab[ ,"normVal"]),
+             x = as.matrix(subTab[ ,c("concentration", "concentration2")]),
+             drug_names = subIndex[2:3],
+             experiment_ID = subIndex[1])
     }
 
     # fit synergyscreen with parallel running
-    fit <- bayesynergy::synergyscreen(allInput,
-                                      save_raw = F,
-                                      save_plots = F,
-                                      bayesynergy_params = list(method = "sampling"))
+    fit <-
+      bayesynergy::synergyscreen(allInput,
+                                 save_raw = FALSE,
+                                 save_plots = FALSE,
+                                 bayesynergy_params = list(method = "sampling"))
 
     # get fit summary
     screenData <- fit$screenSummary %>%
@@ -169,14 +191,14 @@ summariseScreenCombination <- function(screenData,
              synergyScore = `Synergy Score`,
              antagonismScore = `Antagonism Score`) %>%
       select(sampleID, drug, drug2, synergyScore, antagonismScore) %>%
-      left_join(x = screenData,
-                by = c("sampleID", "drug", "drug2", "concentration",
-                       "concentration2"))
+      left_join(x = screenData, y = .,
+                by = c("sampleID", "drug", "drug2"))
 
     # batch effects correction
     if (ifCor) {
 
       allInput.cor <- list()
+
       for(i in seq_len(nrow(allPair))){
 
         subIndex <- unlist(allPair[i, ])
@@ -186,19 +208,20 @@ summariseScreenCombination <- function(screenData,
           select(sampleID, drug, drug2, concentration, concentration2, normVal.cor)
 
         # inputs for synergyscreen function
-        allInput.cor[[i]] <- list(y = as.matrix(subTab[ ,"normVal.cor"]),
-                                  x = as.matrix(subTab[ ,c("concentration", "concentration2")]),
-                                  drug_names = subIndex[2:3],
-                                  experiment_ID = subIndex[1])
+        allInput.cor[[i]] <-
+          list(y = as.matrix(subTab[ ,"normVal.cor"]),
+               x = as.matrix(subTab[ ,c("concentration", "concentration2")]),
+               drug_names = subIndex[2:3],
+               experiment_ID = subIndex[1])
 
       }
 
       # fit synergyscreen with parallel running
-
-      fit.cor <- synergyscreen(allInput,
-                               save_raw = F,
-                               save_plots = F,
-                               bayesynergy_params = list(method = "sampling"))
+      fit.cor <-
+        bayesynergy::synergyscreen(allInput,
+                                   save_raw = FALSE,
+                                   save_plots = FALSE,
+                                   bayesynergy_params = list(method = "sampling"))
 
       # get fit summary
       synTab.cor <- fit.cor$screenSummary %>%
@@ -209,14 +232,16 @@ summariseScreenCombination <- function(screenData,
                antagonismScore.cor = `Antagonism Score`) %>%
         select(sampleID, drug, drug2, synergyScore.cor, antagonismScore.cor)
 
-      # merge synTab and synTab.cor
-      screenData <- full_join(synTab, synTab.cor, by = c("sampleID", "drug", "drug2")) %>%
-        left_join(x = screenData,
-                  by = c("sampleID", "drug", "drug2", "concentration",
-                         "concentration2"))
+
+      screenData <-
+        left_join(x = screenData, y = synTab.cor,
+                  by = c("sampleID", "drug", "drug2"))
+
     }
   }
+
   return(screenData)
+
 }
 
 

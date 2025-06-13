@@ -2,7 +2,7 @@
 % Please edit documentation in R/createPlateInput.R
 \name{createPlateInput}
 \alias{createPlateInput}
-\title{Create a template for plate annotation file}
+\title{Create a Template for Plate Annotation File}
 \usage{
 createPlateInput(rawDir, file, entries = c(), batchAsFolder = FALSE)
 }
@@ -11,18 +11,26 @@ createPlateInput(rawDir, file, entries = c(), batchAsFolder = FALSE)
 
 \item{file}{the output file name and path for the plate annotation file}
 
-\item{entries}{a vector of character strings to use as the column names in the plate annotation file (optional)}
+\item{entries}{a vector of character strings to use as the column names in
+the plate annotation file (optional)}
 
-\item{batchAsFolder}{a logical value, whether the raw data from different batches are stored in different sub-folders.
-The default value is \code{FALSE}. If \code{TRUE}, the folder names will be used as batch identifiers automatically.}
+\item{batchAsFolder}{a logical value, whether the raw data from different
+batches are stored in different sub-folders.
+The default value is \code{FALSE}. If \code{TRUE}, the folder names will be
+used as batch identifiers automatically.}
 }
 \value{
-This function creates a tab-separated values (tsv) file in the working directory.
+This function creates a tab-separated values (tsv) file in the working
+directory.
 }
 \description{
-This function creates a tab-separated values (tsv) file required for annotating plates, for example, the sample ID or patient ID for each plate.
-Users can use the file created by this function as a starting point for preparing the plate annotation file required by the \code{readScreen()} function.
-Users can also prepare the plate annotation file from scratch, as long as it follows the format requirement. More information is available in the package vignette.
+This function creates a tab-separated values (tsv) file required for
+annotating plates, for example, the sample ID or patient ID for each plate.
+Users can use the file created by this function as a starting point for
+preparing the plate annotation file required by the \code{readScreen()}
+function. Users can also prepare the plate annotation file from scratch, as
+long as it follows the format requirement. More information is available in
+the package vignette.
 }
 \examples{
 # create a template for plate annotation file

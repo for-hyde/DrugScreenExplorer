@@ -20,7 +20,8 @@ test_that("Test sumIC50 including internal functions: predict.fitIC50 and calcAU
                         concentration = c(0.001, 0.01, 0.1, 1, 10))
 
   expect_warning(sumIC50(viability ~ concentration, data = doseTab,
-                         minConc = 0, maxConc = 15, n = 100))
+                         minConc = 0, maxConc = 15, n = 100),
+                 regexp = "Curve fitting failed, NA values generated. ")
 
 })
 
