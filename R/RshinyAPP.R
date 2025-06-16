@@ -19,7 +19,7 @@
 #' @export runShiny
 #' @examples
 #' # Launch the Shiny application:
-#' # runDrugScreenExplorer()
+#' runShiny()
 
 runShiny <- function() {
 
@@ -103,9 +103,9 @@ createShinyData <- function(rawDir,
                 overwrite = TRUE,
                 recursive = TRUE)
     }
-    cat(paste0("Successfully copied files from: \n", rawDir, "\n"))
+    message("Successfully copied files from: \n", rawDir, "\n")
   } else {
-    cat(paste0("No files found in: ", rawDir, "\n"))
+    message("No files found in: ", rawDir, "\n")
   }
 
   # copy plateAnnotationFile
@@ -115,10 +115,9 @@ createShinyData <- function(rawDir,
               to = file.path(temp, "/plateAnno"),
               overwrite = TRUE,
               recursive = TRUE)
-    cat(paste0("Successfully copied file from: \n",
-               plateAnnotationFile))
+    message("Successfully copied file from: \n", plateAnnotationFile)
   } else {
-    cat(paste0("No files found in: ", plateAnnotationFile, "\n"))
+    message("No files found in: ", plateAnnotationFile, "\n")
   }
 
   # copy wellAnnotationFile
@@ -128,10 +127,9 @@ createShinyData <- function(rawDir,
               to = file.path(temp, "/wellAnno"),
               overwrite = TRUE,
               recursive = TRUE)
-    cat(paste0("\n Successfully copied file from: \n",
-               wellAnnotationFile))
+    message("\n Successfully copied file from: \n", wellAnnotationFile)
   } else {
-    cat(paste0("No files found in: ", wellAnnotationFile, "\n"))
+    message("No files found in: ", wellAnnotationFile, "\n")
   }
 
   # compress the profile

@@ -22,23 +22,18 @@ header-includes:
 - \doublespacing
 ---
 
-```{r include=FALSE}
+```{r include = FALSE, echo=FALSE}
 knitr::opts_chunk$set(
   collapse = TRUE,
-  comment = "#>"
+  comment = "#>",
+  message = FALSE,
+  warning = FALSE,
+  tidy = TRUE,
+  fig.pos = "h",
+  tidy.opts=list(width.cutoff = 75)
 )
-```
 
-```{r setup, echo=FALSE}
-knitr::opts_chunk$set(
-	message = FALSE,
-	warning = FALSE,
-	tidy = TRUE,
-	fig.pos = "h"
-)
 options(width = 100)
-knitr::opts_chunk$set(tidy.opts=list(width.cutoff = 75))
-
 ```
 
 

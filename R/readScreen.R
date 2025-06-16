@@ -156,8 +156,10 @@ readScreen <- function(rawDir,
                 allowNA = allowNA) %>%
         dplyr::mutate(fileName = eachFile)
     }, error = function(e) {
-      stop(sprintf("Error encountered when reading %s", eachFile))
-    })
+      # Just modify the error message without creating a new error
+      e$message <- sprintf("Error reading %s: %s", eachFile, e$message)
+      stop(e)
+      })
   }) %>% bind_rows()
 
   # add sample annotations to screenData
@@ -264,7 +266,8 @@ readScreen <- function(rawDir,
   # transfer concentration to numeric values
   if ("concentration" %in% colnames(screenData)) {
     # concentration as numeric
-    screenData$concentration <- as.numeric(as.character(screenData$concentration))
+    screenData$concentration <-
+      as.numeric(as.character(screenData$concentration))
     if ("concentration2" %in% colnames(screenData)){
       screenData$concentration2 <-
         as.numeric(as.character(screenData$concentration2))

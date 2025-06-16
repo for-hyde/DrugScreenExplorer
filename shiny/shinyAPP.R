@@ -419,11 +419,9 @@ server <- function(input, output, session) {
 
   output$methodUI <- renderUI({
     req(input$fileInput)
-    # if (input$normalization) {
     selectInput("method", "Methods to calculate percent inhibition",
                 choices = c('negatives', 'NPI'),
                 selected = "negatives")
-    # }
   })
 
   colRange <- reactive({
@@ -581,9 +579,9 @@ server <- function(input, output, session) {
                                                         .default = "sample"))
     } else {
       screenData0 <- dplyr::mutate(processedScreenData(),
-                                  wellType = case_when(drug %in% negWs ~ "neg",
-                                                       drug %in% posWs ~ "pos",
-                                                       .default = "sample"))
+                                   wellType = case_when(drug %in% negWs ~ "neg",
+                                                        drug %in% posWs ~ "pos",
+                                                        .default = "sample"))
     }
 
     # Normalize data
@@ -607,7 +605,8 @@ server <- function(input, output, session) {
     # summary data
     # ! need to set minConc = 0, maxConc = 15 setting
     if (!ifDrug2())
-      screenData0 <- summariseScreen(screenData0, method = c("average", "AUC", "IC50"))
+      screenData0 <- summariseScreen(screenData0,
+                                     method = c("average", "AUC", "IC50"))
 
     print(screenData0)
     removeModal()
@@ -670,14 +669,16 @@ server <- function(input, output, session) {
   output$estimateMethod <- renderUI({
     # if (input$normalization) {
     req(screenData())
-    selectInput("estimateMethod", "Method to estimate the shape and strength of edge effect.",
+    selectInput("estimateMethod",
+                "Method to estimate the shape and strength of edge effect.",
                 choices = c('loess', 'sigmoid'),
                 selected = "loess")
   })
 
   output$useNeg <- renderUI({
     req(screenData())
-    checkboxInput("useNeg", "All or Negative wells used to estimate edge effect",
+    checkboxInput("useNeg",
+                  "All or Negative wells used to estimate edge effect",
                   value = TRUE)
   })
 
@@ -697,17 +698,24 @@ server <- function(input, output, session) {
   observeEvent(input$doCorrEdge, {
     span <- ifelse(is.null(input$span), 1, input$span)
     showModal(modalDialog("Adjusting and summarizing ...", footer = NULL))
-    screenData_fitted <- correctEdgeEffect(screenData(), estimateMethod = input$estimateMethod, useNeg = input$useNeg, span = span, correctMethod = input$correctMethod)
+    screenData_fitted <-
+      correctEdgeEffect(screenData(),
+                        estimateMethod = input$estimateMethod,
+                        useNeg = input$useNeg,
+                        span = span,
+                        correctMethod = input$correctMethod)
     # resummarize
     # remove previous values
 
-    rmCols <- c("meanViab.cor", "AUC.cor", "UpperLimit.cor", "IC50.cor", "Slope.cor", "LowerLimit.cor")
+    rmCols <- c("meanViab.cor", "AUC.cor", "UpperLimit.cor", "IC50.cor",
+                "Slope.cor", "LowerLimit.cor")
     colID <- unlist(sapply(rmCols, grep, colnames(screenData_fitted)))
     if (length(colID) > 0) {
       screenData_fitted <- screenData_fitted[,-colID]
     }
 
-    screenData_fitted <- summariseScreen(screenData_fitted, method = c("average", "AUC", "IC50"))
+    screenData_fitted <- summariseScreen(screenData_fitted,
+                                         method = c("average", "AUC", "IC50"))
     print(screenData_fitted)
     removeModal()
     screenData(screenData_fitted)
@@ -723,7 +731,8 @@ server <- function(input, output, session) {
       addDurgCol <- "drug"
 
     choices <- setdiff(colnames(screenData()),
-                       c("sampleID", "fileName", "wellID", "rowID", "colID", addDurgCol, "value", "normVal", "normVal.cor"))
+                       c("sampleID", "fileName", "wellID", "rowID", "colID",
+                         addDurgCol, "value", "normVal", "normVal.cor"))
     selectInput("sampleAnnotations_norm",
                 "Select well information to display:",
                 choices = choices,
@@ -835,7 +844,9 @@ server <- function(input, output, session) {
   })
 
   output$ifCensorCheck <- renderUI({
-    if (!is.null(input$ifNorm) && input$ifNorm %in% c("viability", "Adjusted viability", "z-score")) {
+    if (!is.null(input$ifNorm) && input$ifNorm %in% c("viability",
+                                                      "Adjusted viability",
+                                                      "z-score")) {
       checkboxInput("ifCensor", "Fix value range", value = FALSE)
     }
   })
@@ -895,8 +906,10 @@ server <- function(input, output, session) {
 
     if (!is.null(input$ifCensor) && input$ifCensor) {
       matPlate <- mutate(matPlate,
-                         val = if_else(val > as.numeric(input$upperLimit), as.numeric(input$upperLimit), val)) %>%
-        mutate(val = if_else(val < as.numeric(input$lowerLimit), as.numeric(input$lowerLimit), val))
+                         val = if_else(val > as.numeric(input$upperLimit),
+                                       as.numeric(input$upperLimit), val)) %>%
+        mutate(val = if_else(val < as.numeric(input$lowerLimit),
+                             as.numeric(input$lowerLimit), val))
     }
     matPlate
   })
@@ -950,8 +963,9 @@ server <- function(input, output, session) {
     s <- event_data("plotly_click")
     # Add potential interesting columns that may or may not exist
 
-    addCol <- intersect(c("drug", "drug2", "wellType", "concentration", "concentration2"),
-                        colnames(plotTab()))
+    addCol <- intersect(
+      c("drug", "drug2", "wellType", "concentration", "concentration2"),
+      colnames(plotTab()))
 
     showAnno <- unique(c(input$sampleAnnotations, addCol))
     showAnno <- showAnno[showAnno != "fileName"]
@@ -1046,24 +1060,27 @@ server <- function(input, output, session) {
 
         if (input$ifNorm %in% c("viability", "Adjusted viability", "z-score")) {
           if (!is.null(input$ifCensor) && input$ifCensor) {
-            p <- p + scale_fill_gradient2(high = "red",
-                                          low = "blue",
-                                          mid = "white",
-                                          midpoint = 1,
-                                          limits = c(as.numeric(input$lowerLimit),
-                                                     as.numeric(input$upperLimit)),
-                                          name = input$ifNorm)
+            p <- p +
+              scale_fill_gradient2(high = "red",
+                                   low = "blue",
+                                   mid = "white",
+                                   midpoint = 1,
+                                   limits = c(as.numeric(input$lowerLimit),
+                                              as.numeric(input$upperLimit)),
+                                   name = input$ifNorm)
           } else {
-            p <- p + scale_fill_gradient2(high = "red",
-                                          low = "blue",
-                                          mid = "white",
-                                          midpoint = 1,
-                                          name = input$ifNorm)
+            p <- p +
+              scale_fill_gradient2(high = "red",
+                                   low = "blue",
+                                   mid = "white",
+                                   midpoint = 1,
+                                   name = input$ifNorm)
           }
         } else if (input$ifNorm == "raw count") {
-          p <- p + scale_fill_gradient(low = "blue",
-                                       high = "red",
-                                       name = input$ifNorm)
+          p <- p +
+            scale_fill_gradient(low = "blue",
+                                high = "red",
+                                name = input$ifNorm)
         }
       }
     }
@@ -1133,7 +1150,8 @@ server <- function(input, output, session) {
     else
       sampleAnnotations <- c("sampleID", "fileName")
 
-    sampleAnnotations <- c("sampleID", "fileName", sampleAnnotations[colClass() != "nd"]) # remove NA
+    sampleAnnotations <- c("sampleID", "fileName",
+                           sampleAnnotations[colClass() != "nd"]) # remove NA
     selectInput("seleColor", "Color by", sampleAnnotations,
                 size = 5,
                 selectize = FALSE,
@@ -1161,7 +1179,9 @@ server <- function(input, output, session) {
         pull(fileName) %>%
         unique()
 
-      plotTab <- filter(filteredData(), fileName %in% selePlates, drug == input$nameDrug)
+      plotTab <- filter(filteredData(),
+                        fileName %in% selePlates,
+                        drug == input$nameDrug)
     }
     plotTab
   })
@@ -1454,10 +1474,15 @@ server <- function(input, output, session) {
             limits = c(min(plot_data$Viability, na.rm = TRUE), max(plot_data$Viability, na.rm = TRUE)),
             name = "Viability"
           ) +
-          geom_hline(yintercept = seq(0.5, length(unique(plot_data$Drug)) + 0.5, 1), color = "grey", linewidth = 0.5) +
+          geom_hline(
+            yintercept = seq(0.5, length(unique(plot_data$Drug)) + 0.5, 1),
+            color = "grey", linewidth = 0.5) +
           # External vertical lines
-          geom_vline(xintercept = seq(0.5, length(unique(plot_data$Sample)) + 0.5, 1), color = "grey", linewidth = 0.5) +
-          coord_cartesian(xlim = c(0.5, length(unique(plot_data$Sample)) + 0.5), expand = FALSE) +
+          geom_vline(
+            xintercept = seq(0.5, length(unique(plot_data$Sample)) + 0.5, 1),
+            color = "grey", linewidth = 0.5) +
+          coord_cartesian(xlim = c(0.5, length(unique(plot_data$Sample)) + 0.5),
+                          expand = FALSE) +
           theme_minimal(base_size = 12) +
           theme(
             axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5),
@@ -1477,13 +1502,19 @@ server <- function(input, output, session) {
           geom_tile(color = "white") +
           scale_fill_gradientn(
             colors = rev(brewer.pal(7, "RdYlBu")),
-            limits = c(min(plot_data$Coefficient, na.rm = TRUE), max(plot_data$Coefficient, na.rm = TRUE)),
+            limits = c(min(plot_data$Coefficient, na.rm = TRUE),
+                       max(plot_data$Coefficient, na.rm = TRUE)),
             name = "Coefficient"
           ) +
-          geom_hline(yintercept = seq(0.5, length(unique(plot_data$Drug1)) + 0.5, 1), color = "grey", linewidth = 0.5) +
+          geom_hline(
+            yintercept = seq(0.5, length(unique(plot_data$Drug1)) + 0.5, 1),
+            color = "grey", linewidth = 0.5) +
           # External vertical lines
-          geom_vline(xintercept = seq(0.5, length(unique(plot_data$Drug2)) + 0.5, 1), color = "grey", linewidth = 0.5) +
-          coord_cartesian(xlim = c(0.5, length(unique(plot_data$Drug2)) + 0.5), expand = FALSE) +
+          geom_vline(
+            xintercept = seq(0.5, length(unique(plot_data$Drug2)) + 0.5, 1),
+            color = "grey", linewidth = 0.5) +
+          coord_cartesian(xlim = c(0.5, length(unique(plot_data$Drug2)) + 0.5),
+                          expand = FALSE) +
           theme_minimal(base_size = 12) +
           theme(
             axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5),
@@ -1515,7 +1546,9 @@ server <- function(input, output, session) {
           if (colType != "continuous")
             plotTab[[input$seleColor1]] <- as.factor(plotTab[[input$seleColor1]])
 
-          g <- ggplot(plotTab, aes_string(x = "x", y = "y", color = input$seleColor1)) + geom_point() + theme_bw()
+          g <- ggplot(plotTab,
+                      aes_string(x = "x", y = "y",
+                                 color = input$seleColor1)) + geom_point() + theme_bw()
         }
 
         if (colType == "continuous") {

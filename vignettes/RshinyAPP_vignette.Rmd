@@ -23,24 +23,17 @@ header-includes:
 ---
 
 
-```{r include=FALSE}
+```{r setup, echo=FALSE, include = FALSE}
 knitr::opts_chunk$set(
   collapse = TRUE,
-  comment = "#>"
-)
-```
-
-
-
-```{r setup, echo=FALSE}
-knitr::opts_chunk$set(
-	message = FALSE,
-	warning = FALSE,
-	tidy = TRUE,
-	fig.pos = "h"
+  comment = "#>",
+  message = FALSE,
+  warning = FALSE,
+  tidy = TRUE,
+  fig.pos = "h",
+  tidy.opts=list(width.cutoff = 75)
 )
 options(width = 100)
-knitr::opts_chunk$set(tidy.opts=list(width.cutoff = 75))
 
 ```
 
