@@ -23,5 +23,5 @@ directory. If the application cannot be found, try reinstalling the package.
 }
 \examples{
 # Launch the Shiny application:
-runShiny()
+# runShiny()
 }

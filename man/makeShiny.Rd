@@ -43,19 +43,19 @@ from data import to response effect calculation via point-and-click.
 \examples{
 
 # Create a temporary directory for the output
-temp_output_dir <- tempdir()
+#temp_output_dir <- tempdir()
 
 # Get example data file paths from the package
-rawFolder <- system.file('testData/rawData', package = 'DrugScreenExplorer')
-plateFile <- system.file('testData/plateAnno/plateAnno.tsv',
-                         package = 'DrugScreenExplorer')
-wellFile  <- system.file('testData/wellAnno/wellAnno.tsv',
-                         package = 'DrugScreenExplorer')
+# rawFolder <- system.file('testData/rawData', package = 'DrugScreenExplorer')
+# plateFile <- system.file('testData/plateAnno/plateAnno.tsv',
+#                         package = 'DrugScreenExplorer')
+# wellFile  <- system.file('testData/wellAnno/wellAnno.tsv',
+#                         package = 'DrugScreenExplorer')
 
 # Check if example data exists before running
-makeShiny(rawDir = rawFolder,
-           plateAnnotationFile = plateFile,
-           wellAnnotationFile = wellFile,
-           dir = temp_output_dir)
+# makeShiny(rawDir = rawFolder,
+#          plateAnnotationFile = plateFile,
+#          wellAnnotationFile = wellFile,
+#          dir = temp_output_dir)
 
 }

@@ -60,5 +60,3 @@ makeReport <- function(screenData,
 }
 
 
-
-

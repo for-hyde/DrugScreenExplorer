@@ -12,6 +12,8 @@ output:
   pdf_document:
     toc: true
     toc_depth: '3'
+bibliography: references.bib
+csl: apa.csl
 link-citations: true
 vignette: >
   %\VignetteIndexEntry{Introduction to DrugScreenExplore}
@@ -66,11 +68,12 @@ quality control and visualizing of high-throughput drug sensitivity screen data.
 
 The package can achieve the following functions: 
 
-1, normalize the viability values   
+1, data preprocessing;
+2, check and report the quality of the screen data;     
+1, normalize the viability values;  
 2, detect and adjust the edge effects    
-3, summarize drug effects using several indices, e.g., IC50 and AUC  
+3, summarize drug effects using several measures, e.g., IC50 and AUC  
 4, summarize the synergy or antagonism effects of two-drug combination     
-5, generate a quality report of the screen data     
 6, using a shiny app to explore process data interactively   
 
 *DrugScreenExplorer* was original designed to proceed the single drug screening, 
@@ -534,6 +537,12 @@ ggplot(sumDat, aes(x = drug, y = value)) +
 
 # Extension to two-drug combination
 
+*DrugScreenExplorer* allows to summarize the synergy or antagonism effects of 
+two-drug combination. The combination effects can be estimated by two methods
+between *bliss* or *bayesynergy*.  
+
+
+
 ```{r}
 
 plateFile <- system.file("testData/plateAnnoCombine/plateAnnoCombine.tsv",
@@ -557,64 +566,71 @@ head(screenData)
 
 ```
 
-```{r, fig.height = 3, fig.width=6}
-g <- plotRawCount(screenData, ifLog10 = TRUE)
-plot(g)
-```
+
+For *bliss* method, the expected combined effects $V_{AB}$ under bliss 
+independence is $ V_{AB}^{bliss} = V_A \times V_B$, where $V_A$ and $V_B$ are the 
+viability [@zhao2014new; @grewelle2021statistical]. 
 
 
-```{r, fig.width = 6, fig.height = 4}
-g <- plotPlate(screenData = screenData, plotPlate = "all", plotType = "zscore")
-grid.arrange(grobs = g, ncol = 2)
-```
+If observed effect $V_{AB}^{obs}$ is lower than $V_{AB}^{bliss}$, the combination 
+is synergistic; otherwise additive if $V_{AB}^{obs} = V_{AB}^{bliss}$ or 
+antagonistic if $V_{AB}^{obs} > V_{AB}^{bliss}$. 
 
 
-```{r, fig.height = 2.5, fig.width=10}
-g <- plotTypeDist(screenData, ifLog10 = TRUE)
-grid.arrange(grobs = g, ncol = 4)
-```
+```{r}
 
-## Plate heatmap plot
+sumScreen <- summariseScreenCombination(screenData,
+                                        negDrug = "DMSO",
+                                        method = "bliss")
 
-A more straight forward way to check the screen quality is to plot the signal 
-intensity heatmap for each screen. This can be easily achieved by employing 
-the *platePlot()*. Heatmaps make it easy to identify screen artifacts, such 
-as incubation effects. 
-
-```{r, fig.width = 6, fig.height = 4}
-
-g <- plotPlate(screenData = screenData, plotPlate = "all", plotType = "viability")
-grid.arrange(grobs = g[1:4], ncol = 2)
+# remove single drug well 
+sumScreen %>%
+  filter(drug != "DMSO" & drug2 != "DMSO") %>%
+  select(drug, concentration, drug2, concentration2, viabObs, viabExp, CI) %>%
+  mutate(across(viabObs:CI, ~ round(., 3))) %>%
+  head()
 
 ```
-```{r, fig.height = 4, fig.width = 6}
-g <- plotPlate(screenData = screenData, plotPlate = "all", plotType = "layout")
-grid.arrange(grobs = g, ncol = 2)
-```
+
+
+The **CI** in the table is defined as: $CI = viabObs - viabExp$, where *viabObs* 
+and *viabExp* are Observed viability ($V_{AB}^{obs}$) and Expected viability
+$V_{AB}^{bliss}$. 
+
+- If \( CI > 0 \): **Antagonism**
+- If \( CI = 0 \): **Additive / Independent**
+- If \( CI < 0 \): **Synergy**
+
+
+The *bayesynergy* method models drug combination effects using a Bayesian 
+statistical approach. It is designed to distinguish between synergistic, 
+antagonistic, and additive interactions between two drugs.*bayesynergy* 
+provides a flexible and robust framework; however, it is typically more 
+computationally intensive, especially when applied to high-throughput drug 
+screening data. 
+
+
+Of note, the *bayesynergy* package need to be installed manually from 
+*https://github.com/ocbe-uio/bayesynergy* if *bayesynergy* methods is selected 
+to assess the drug combination effects. 
+
 
 # Interactive data exploration using Shiny app
 
-Prepare data set for shiny app
-
-```{r, eval = FALSE}
-makeShiny(screenData, 
-          sampleAnnotations = c("batch","sampleID","patientID","
-                                Mutation","Expression","Group"))
-```
-The functions avaialbe for the shiny app will be dependent on the sample 
-annotations provided by the user.   
-**Run shiny app**
 
 An R Shiny application was developed based on the analysis tools in the 
 *DrugScreenExplorer* package, enabling users of all technical backgrounds 
 to perform comprehensive drug screen analyses through an interactive web 
-interface. The application can be launched using the *runShiny()* or *makeShiny()* 
-functions. For detailed instructions on using the R Shiny application, please 
-refer to the package vignette. 
+interface. The application can be launched using the *runShiny()* or 
+*makeShiny()* functions. For detailed instructions on using the R Shiny 
+application, please refer to the corresponding vignette. 
+
 
 # SessionInfo
 ```{r}
 sessionInfo()
 ```
+
+# References
 
 

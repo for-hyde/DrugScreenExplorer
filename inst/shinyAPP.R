@@ -1,9 +1,4 @@
 
-#-------------------------------------------------------------------------------
-# V4, the largest updates on Plate plot
-# Date, 8/14.2024
-#-------------------------------------------------------------------------------
-
 seleDrugUI <- function(id) {
   ns <- NS(id)
   tagList(tags$h4("Select drugs", style = "color: #2166AC"),
@@ -11,7 +6,12 @@ seleDrugUI <- function(id) {
           uiOutput(ns("seleCombiDrugBox")))
 }
 
-# define modules
+# Set global error handler
+options(shiny.error = function() {
+  # This prevents the app from shutting down
+  # Errors will be handled by individual tryCatch blocks
+})
+
 # library(shinyr)
 library(shiny)
 library(tidyverse)
@@ -23,8 +23,6 @@ library(DrugScreenExplorer)
 library(DT)
 library(shinyBS)
 library(Rtsne)
-
-# load("./shinyData.RData")
 
 ui <- navbarPage(
 
@@ -91,8 +89,9 @@ ui <- navbarPage(
                  uiOutput("span"),
                  bsTooltip("span", "Controls the degree of smoothing of loess"),
                  uiOutput("correctMethod"),
+                 textOutput("correctEdgeEffect_message") %>%
+                   tagAppendAttributes(style = "color: red; margin-top: 10px;"),
                  bsTooltip("correctMethod", "Currently two methods 'bliss' and 'linear' are supported. If bliss is selected, the corrected values are simply the normalized signal intensity values divided by the estimated incubation/edge effect intensity. If linear is selected, the correction process will be smoothed by a linear function depends on the original normalized signal intensity. This option is suitable for the situation when the edge effect is very strong and results in instability in the correction process."),
-
                  actionButton("doCorrEdge", "Correct", align = "center")
                ), width = 4),
 
@@ -445,12 +444,6 @@ server <- function(input, output, session) {
                   value = FALSE)
   })
 
-  # output$normCheckBox <- renderUI({
-  #   req(input$fileInput)
-  #   checkboxInput("normalization",
-  #                 "Calcualte percent inhibition",
-  #                 value = TRUE)
-  # })
 
   output$discardLayerInput <- renderUI({
     req(input$fileInput)
@@ -489,8 +482,11 @@ server <- function(input, output, session) {
 
   processedScreenData <- eventReactive(input$doImport, {
 
-    req(input$fileInput, input$rowTop, input$rowBottom,
-        input$sep, input$discardLayer)
+    req(input$fileInput,
+        input$rowTop,
+        input$rowBottom,
+        input$sep,
+        input$discardLayer)
 
     processedScreenData <-
       tryCatch({result <- readScreen(rawDir = rawDir(),
@@ -514,7 +510,6 @@ server <- function(input, output, session) {
   })
 
   output$readScreen_message <- renderText({
-
     req(processedScreenData())
     if (!is.null(processedScreenData()$message))
       processedScreenData()$message
@@ -769,12 +764,26 @@ server <- function(input, output, session) {
 
     span <- ifelse(is.null(input$span), 1, input$span)
     showModal(modalDialog("Adjusting and summarizing ...", footer = NULL))
+
+
     screenData_fitted <-
-      correctEdgeEffect(screenData(),
-                        estimateMethod = input$estimateMethod,
-                        useNeg = input$useNeg,
-                        span = span,
-                        correctMethod = input$correctMethod)
+      tryCatch({
+        correctEdgeEffect(screenData(),
+                          estimateMethod = input$estimateMethod,
+                          useNeg = input$useNeg,
+                          span = span,
+                          correctMethod = input$correctMethod)},
+        error = function(e) {
+          message <- warningMessage(paste("Error:", e$message))
+          list(message = message)
+        })
+
+    output$correctEdgeEffect_message <- renderText({
+      req(screenData_fitted())
+      if (!is.null(screenData_fitted()$message))
+        screenData_fitted()$message
+    })
+
     # resummarize
     # remove previous values
 
@@ -788,8 +797,9 @@ server <- function(input, output, session) {
 
     screenData_fitted <- summariseScreen(screenData_fitted,
                                          method = c("average", "AUC", "IC50"))
-    removeModal()
     screenData(screenData_fitted)
+    removeModal()
+
   })
 
   # Dynamically generate UI for column selection

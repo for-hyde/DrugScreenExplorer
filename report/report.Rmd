@@ -32,7 +32,7 @@ screenData <- readRDS("screenData.rds")
 
 ### Screen format
 ```{r screen format, echo=params$showCode, warning=FALSE, message=FALSE}
-screenInfo <- tibble(info = c("Plate Number", "Plate format"), 
+screenInfo <- tibble::tibble(info = c("Plate Number", "Plate format"), 
                     value = c(length(unique(screenData$fileName)), length(unique(screenData$wellID))))
 
 if ("batch" %in% names(screenData)) screenInfo <- rbind(screenInfo, c("Batch number",length(unique(screenData$batch))))

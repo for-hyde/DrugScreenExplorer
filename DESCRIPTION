@@ -17,27 +17,33 @@ License: GPL-3
 URL: https://github.com/ShuoStat/DrugScreenExplorer
 BugReports: https://github.com/ShuoStat/DrugScreenExplorer
 Depends:
-    R (>= 4.4.0)
+    R (>= 4.4.0),
 Imports:
+    BiocStyle,
+    DT,
+    fs,
+    kableExtra,
+    pheatmap,
+    plotly,
+    RColorBrewer,
+    shinyBS,
+    tidyverse,
+    zip,
     dplyr,
     dr4pl,
     ggplot2,
     gridExtra,
-	rlang,
+    rlang,
     purrr,
     readr,
     stringr,
     tibble,
     tidyr,
     tools,
-	ggrepel
+    ggrepel
 Suggests: 
     broom,
-    DT,
     knitr,
-    pheatmap,
-    plotly,
-    RColorBrewer,
     rmarkdown,
     Rtsne,
     shiny,
