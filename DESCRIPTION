@@ -1,7 +1,7 @@
 Type: Package
 Package: DrugScreenExplorer
 Title: A pipeline for processing drug sensitivity screen data
-Version: 0.99.1
+Version: 0.99.0
 Date: 2025-04-01
 Authors@R: c(
     person("Shuo", "Wang", email = "wangsures@foxmail.com", role = c("aut", "cre"), comment = c(ORCID = "0009-0000-0424-2160")),
@@ -13,21 +13,20 @@ Description: DrugScreenExplorer is a comprehensive R package designed for stream
 			 To enhance usability, DrugScreenExplorer incorporates an R Shiny application, providing a user-friendly graphical interface that facilitates data analysis, 
 			 even for those with limited programming experience. DrugScreenExplorer serves as a valuable resource for pharmacologists and biomedical researchers working 
 			 with large-scale drug screening datasets.
-License: GPL-3
+License: Artistic-2.0
 URL: https://github.com/ShuoStat/DrugScreenExplorer
 BugReports: https://github.com/ShuoStat/DrugScreenExplorer
 Depends:
     R (>= 4.4.0),
+    tidyverse
 Imports:
     BiocStyle,
     DT,
     fs,
-    kableExtra,
     pheatmap,
     plotly,
     RColorBrewer,
     shinyBS,
-    tidyverse,
     zip,
     dplyr,
     dr4pl,
@@ -40,13 +39,17 @@ Imports:
     tibble,
     tidyr,
     tools,
-    ggrepel
-Suggests: 
+    ggrepel,
+    Rtsne,
     broom,
+    scales,
+    shiny,
+    ggbeeswarm,
+    kableExtra
+Suggests: 
+    bayesynergy,
     knitr,
     rmarkdown,
-    Rtsne,
-    shiny,
     testthat (>= 3.0.0)
 VignetteBuilder: knitr
 biocViews: Software, CellBasedAssays, DataImport, Regression,

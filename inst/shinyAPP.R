@@ -44,6 +44,9 @@ ui <- navbarPage(
 
                  fileInput("fileInput", "Choose ZIP File", accept = ".zip"),
                  bsTooltip(id = "fileInput", title = "A Zip File containing plateAnno, wellAnno, and rawData"),
+                 textOutput("pathDisplay") %>%
+                   tagAppendAttributes(style = "color: gray; margin-top: 0; font-size: 10px"),
+
                  uiOutput("getRange"),
                  bsTooltip("getRange", "The range of lines and columns containing actual values"),
                  uiOutput("sepText"),
@@ -349,6 +352,10 @@ ui <- navbarPage(
 
 
 server <- function(input, output, session) {
+
+  output$pathDisplay <- renderText({
+    paste0("Find example data at ", system.file(package = "DrugScreenExplorer"), "/extdata")
+  })
 
   # get temp directory
   temp <- tempdir()
@@ -1623,9 +1630,9 @@ server <- function(input, output, session) {
   # Panel 5
   ##############################################################################
 
-  library(ComplexHeatmap)
-  library(circlize)
-  library(RColorBrewer)
+  # library(ComplexHeatmap)
+  # library(circlize)
+  # library(RColorBrewer)
 
   # select patient group for subsetting
   output$seleGroup2 <- renderUI({

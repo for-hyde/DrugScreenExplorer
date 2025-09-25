@@ -1,0 +1,30 @@
+## shinyExampleData
+
+shinyExampleData is a well compressed data ready for importing in the R shiny application. 
+
+The parameter for specifying the range of the data are  
+
+Top = 3; Bottom = 18； Left = 2; Right = 999  
+
+Separator Character is: [;	]
+
+
+Negative control wells: DMSO and PBS
+
+Positive wells: can be any drug names.
+
+
+## shinyCombineExampleData
+
+shinyCombineExampleData is the example data for two-drug combination screening. 
+
+The parameter for specifying the range of the data are  
+
+Top = 7; Bottom = 22 Left = 2; Right = 999  
+
+Separator Character is: ,
+
+
+Negative control wells: DMSO_DMSO
+
+Positive wells: can be any drug names.

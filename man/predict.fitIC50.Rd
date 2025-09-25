@@ -46,9 +46,9 @@ doseTab <- data.frame(viability = c(1.0, 0.95, 0.5, 0.2, 0.1),
 mm <- fitIC50(viability ~ concentration, data = doseTab)
 
 # Predict response using the input concentrations
-predict.fitIC50(mm)
+predict(mm)
 
 # Predict response using new concentrations
-predict.fitIC50(mm, newdata = c(0.25, 2.5, 5, 15))
+predict(mm, newdata = c(0.25, 2.5, 5, 15))
 
 }

@@ -1,7 +1,52 @@
+# R and Bioconductor specific
 .Rproj.user
 .Rhistory
 .RData
 .Ruserdata
-.project
-.git
+*.Rproj
+
+# Bioconductor build artifacts
+Meta/
+inst/doc/
+*.tar.gz
+*.Rcheck/
+
+# Compiled files
+*.o
+*.so
+*.dll
+
+# Debugging files
+*.dSYM/
+*.gcda
+*.gcno
+
+# Documentation
+/doc/
+/vignettes/*.html
+/vignettes/*.pdf
+
+# Test and coverage files
+/tests/*.Rout
+/tests/*.Rout.save
+/tests/*.fail
+/tests/*.pdf
+/coverage/
+
+# RStudio project files
+*.Rproj
+
+# macOS files
 .DS_Store
+
+# Emacs backup files
+*~
+
+# Temporary files
+*.swp
+*.swo
+*#
+
+# IDE specific (optional)
+.vscode/
+.idea/

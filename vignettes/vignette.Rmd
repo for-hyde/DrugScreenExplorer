@@ -568,7 +568,7 @@ head(screenData)
 
 
 For *bliss* method, the expected combined effects $V_{AB}$ under bliss 
-independence is $ V_{AB}^{bliss} = V_A \times V_B$, where $V_A$ and $V_B$ are the 
+independence is $V_{AB}^{bliss} = V_A \times V_B$, where $V_A$ and $V_B$ are the 
 viability [@zhao2014new; @grewelle2021statistical]. 
 
 
@@ -614,14 +614,26 @@ Of note, the *bayesynergy* package need to be installed manually from
 *https://github.com/ocbe-uio/bayesynergy* if *bayesynergy* methods is selected 
 to assess the drug combination effects. 
 
+The effects of drug combinations can be visualized using function
+*plotCombination()*. When combination effects are computed by `bliss` method
+in `summariseScreenCombination()`, this function generates a concentration-
+response heatmap for a specific drug pair using Combination Index (CI) or
+log(CI) values. When combination effects are computed by `bayesynergy`
+method in `summariseScreenCombination()`, this function generates a comprehensive
+heatmap showing synergy or antagonism scores across all tested drug combinations.
+
+```{r, fig.height = 4, fig.width = 8}
+
+plotCombination(sumScreen, whichIndex = "CI", drug1 = "Venetoclax", drug2 = "Apigenin")
+
+```
 
 # Interactive data exploration using Shiny app
-
 
 An R Shiny application was developed based on the analysis tools in the 
 *DrugScreenExplorer* package, enabling users of all technical backgrounds 
 to perform comprehensive drug screen analyses through an interactive web 
-interface. The application can be launched using the *runShiny()* or 
+interface. The application can be launched using the *buildApp()* or 
 *makeShiny()* functions. For detailed instructions on using the R Shiny 
 application, please refer to the corresponding vignette. 
 

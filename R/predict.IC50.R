@@ -11,7 +11,7 @@
 #' @param level a numeric values, Not used, mainly for geom_smooth purpose.
 #' @param interval not used, mainly for geom_smooth purpose.
 #' @param ... further arguments to be passed to ggplot when using geom_smooth().
-#' @method predict fitIC50
+  #' @method predict fitIC50
 #' @return a vector of predicted response based on a fitted model and input
 #' concentration values.
 #' @examples
@@ -24,12 +24,12 @@
 #' mm <- fitIC50(viability ~ concentration, data = doseTab)
 #'
 #' # Predict response using the input concentrations
-#' predict.fitIC50(mm)
+#' predict(mm)
 #'
 #' # Predict response using new concentrations
-#' predict.fitIC50(mm, newdata = c(0.25, 2.5, 5, 15))
+#' predict(mm, newdata = c(0.25, 2.5, 5, 15))
 #'
-#' @export predict.fitIC50
+#' @export
 
 predict.fitIC50 <- function(object, newdata = NULL,
                             se.fit = FALSE,

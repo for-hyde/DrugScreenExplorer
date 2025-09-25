@@ -56,7 +56,10 @@ fitIC50 <- function(formula, data = NULL, weights = NULL, logDose = NULL, ...) {
   newModel <- list(formula = formula,
                    parm_fit = parm_fit,
                    logDose = logDose,
-                   model = modelFrame)
+                   model = modelFrame,
+                   concentration = modelFrame[, 2],
+                   response = modelFrame[, 1],
+                   parameters = stats::coef(parm_fit))
 
   class(newModel) <- "fitIC50"
   return(newModel)
