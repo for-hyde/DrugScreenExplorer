@@ -384,11 +384,19 @@
       selectedPlates <- unique(selectedPlates)
 
       normTable <- screenData() %>%
+        filter(fileName %in% selectedPlates) %>%
+        #Adding WellLabel column to DF (required for report) FH
+        mutate(
+          .drug_combination = if(ifDrug2()) paste0(drug, "_", drug2) else drug,
+          wellType = case_when(
+            .drug_combination %in% input$negWell ~ "neg",
+            .drug_combination %in% input$posWell ~ "pos",
+            TRUE                                 ~ "sample"
+          )
+        ) %>%
         dplyr::select(any_of(c("sampleID", "fileName", "wellID", "rowID", "colID",
-                               addDurgCol, input$sampleAnnotations_norm, "value",
-                               "normVal", "normVal.cor"))) %>%
-        filter(fileName %in% selectedPlates)
-
+                               "wellType", addDurgCol, input$sampleAnnotations_norm, "value",
+                               "normVal", "normVal.cor")))
       return(normTable)
     })
 
@@ -431,6 +439,7 @@
         dir.create(tmpdir)
 
         norm_data <- normData()
+        print(colnames(norm_data))
 
         makeReport(
           screenData = norm_data,
