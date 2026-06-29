@@ -111,7 +111,9 @@ seleDrugUI <- function(id) {
 
                  textOutput("readScreen_message"),
                  uiOutput("sampleInfo_ui"),
-                 uiOutput("normTable_ui")
+                 uiOutput("normTable_ui"),
+                 uiOutput("downloadUI") #Generate report
+
                )
              )
     ),

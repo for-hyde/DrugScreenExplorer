@@ -414,8 +414,40 @@
       )
     })
 
+
+    output$downloadUI <- renderUI({
+      req(normData())
+
+      downloadButton("downloadQC", "Download QC Report")
+    })
+
+    # Make QC report
+    output$downloadQC <- downloadHandler(
+      filename = function () {
+        "QC_report.html"
+      },
+      content = function(file) {
+        tmpdir <- tempfile()
+        dir.create(tmpdir)
+
+        norm_data <- normData()
+
+        makeReport(
+          screenData = norm_data,
+          dir = tmpdir
+        )
+
+        file.copy(
+          from = file.path(tmpdir, "report", "report.html"),
+          to = file,
+          overwrite = TRUE
+        )
+      }
+    )
+
     #-----------------------------------------------------------------------------
     # 1.3 adjust incubation effect
+    # Placement should be adjusted?? -FH
 
     output$estimateMethod <- renderUI({
       # if (input$normalization) {
