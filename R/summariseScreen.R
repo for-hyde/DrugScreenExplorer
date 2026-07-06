@@ -66,7 +66,7 @@
 #' # Please see the vignette for more information
 
 summariseScreen <- function(screenData,
-                            method = c("average", "AUC", "IC50"),
+                            method = c("average", "AUC", "IC50", "DSS"),
                             minConc = 0, maxConc = 15) {
 
   # check if necessary columns are present in the input data
@@ -200,6 +200,32 @@ summariseScreen <- function(screenData,
     # Join the summarized IC50 data back to the original data
     screenData <- left_join(screenData, sumTab, by = c("sampleID", "drug"))
   }
+
+  #Add section for calculating DSS score. FH
+  if ("DSS" %in% method) {
+    if (ifCor) {
+      sumTab <- grouped_subData %>%
+        dplyr::summarise(DSS = calcDSS(viab, concentration),
+                         DSS.cor = calcDSS(viab.cor, concentration)) %>%
+        ungroup()
+    } else {
+      sumTab <- grouped_subData %>%
+        dplyr::summarise(DSS = calcDSS(viab, concentration)) %>%
+        ungroup()
+    }
+
+    # Remove existing 'DSS' and 'DSS.cor' columns if it already exists in the input data
+    if ("DSS" %in% colnames(screenData)){
+      screenData[["DSS"]] <- NULL
+    }
+
+    if ("DSS.cor" %in% colnames(screenData)){
+      screenData[["DSS.cor"]] <- NULL
+    }
+
+    screenData <- left_join(screenData, sumTab, by = c("sampleID", "drug"))
+  }
+
 
   return(screenData)
 }
