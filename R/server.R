@@ -349,7 +349,7 @@
 
         if (!ifDrug2()) {
           screenData0 <- summariseScreen(screenData0,
-                                         method = c("average", "AUC", "IC50"))
+                                         method = c("average", "AUC", "IC50", "DSS"))
         }
 
         screenData(screenData0)
@@ -523,7 +523,7 @@
       }
 
       screenData_fitted <- summariseScreen(screenData_fitted,
-                                           method = c("average", "AUC", "IC50"))
+                                           method = c("average", "AUC", "IC50","DSS"))
       screenData(screenData_fitted)
       removeModal()
 
@@ -1068,8 +1068,8 @@
 
     # select the summarisation statistics
     output$sumTypeBox <- renderUI({
-      typeMap <- structure(c("meanViab", "AUC", "IC50"),
-                           names = c("average viability", "AUC", "IC50"))
+      typeMap <- structure(c("meanViab", "AUC", "IC50", "DSS"),
+                           names = c("average viability", "AUC", "IC50", "DSS"))
       typeAvail <- typeMap[typeMap %in% colnames(filteredData())]
       radioButtons("seleSumType", "Drug effect summarisation method", typeAvail)
     })
@@ -1389,8 +1389,8 @@
 
     # show options for the summarisation method for viability
     output$sumTypeBox1 <- renderUI({
-      typeMap <- structure(c("meanViab", "AUC", "IC50"),
-                           names = c("average viability", "AUC", "IC50"))
+      typeMap <- structure(c("meanViab", "AUC", "IC50","DSS"),
+                           names = c("average viability", "AUC", "IC50","DSS"))
       typeAvail <- typeMap[typeMap %in% colnames(filteredData())]
       radioButtons("seleSumType1",
                    "Drug effect summarisation method",
