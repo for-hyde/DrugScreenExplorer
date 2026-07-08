@@ -658,6 +658,8 @@
     })
 
     output$censorLimitBox <- renderUI({
+      lower <- NULL
+      upper <- NULL
 
       if (!is.null(input$ifCensor) && input$ifCensor) {
         if (input$ifNorm %in% c("viability", "Adjusted viability")) {
@@ -665,7 +667,7 @@
           lower <- 0
         } else if (input$ifNorm == "z-score") {
           upper <- 4
-          lower <- 4
+          lower <- -4
         }
       }
 
@@ -1170,6 +1172,9 @@
       # variant filtering
       sds <- apply(viabMat, 1, sd)
       viabMat <- viabMat[sds >= quantile(sds, 1 - input$topPercent/100), ]
+
+      # CRITICAL FIX: Ensure the matrix is not empty before returning it
+      shiny::req(nrow(viabMat) > 0)
 
       list(viabMat = viabMat, idMap = idMap)
     })
@@ -2099,6 +2104,11 @@
       }
     )
   }
+  ##############################################################################
+  # Panel 8, Drug ranking
+  ##############################################################################
+
+
 
   return(serve)
 }
