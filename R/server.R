@@ -2103,13 +2103,98 @@
                limitsize = FALSE)
       }
     )
+
+    # Panel 8, Drug ranking
+    output$rankScoreBox <- renderUI({
+      req(filteredData())
+      scoreCols <- intersect(c("DSS", "AUC", "IC50", "meanViab"), colnames(filteredData()))
+      if (length(scoreCols) == 0) {
+        return(tags$p("No summarization score columns available. Run normalization and summarization first."))
+      }
+      selectInput("rankScore", "Select score", choices = scoreCols, selected = scoreCols[1])
+    })
+
+    output$rankGroupBox <- renderUI({
+      req(filteredData())
+      groupChoices <- "All samples"
+      if (!is.null(input$sampleAnnotations) && length(input$sampleAnnotations) > 0) {
+        groupChoices <- c("All samples", input$sampleAnnotations)
+      }
+      selectInput("rankGroup", "Compare within", choices = groupChoices, selected = groupChoices[1])
+    })
+
+    output$rankSampleBox <- renderUI({
+      req(filteredData())
+      sampleIds <- sort(unique(filteredData()$sampleID))
+      selectInput("rankSampleID", "Select sample", choices = sampleIds, selected = sampleIds[1])
+    })
+
+    rankData <- eventReactive(input$rankPlotButton, {
+      req(filteredData(), input$rankScore, input$rankSampleID, input$rankSummary)
+      data <- filteredData() %>% filter(wellType == "sample")
+      scoreCol <- input$rankScore
+      if (input$rankUseCorrected && paste0(scoreCol, ".cor") %in% colnames(data)) {
+        scoreCol <- paste0(scoreCol, ".cor")
+      }
+      if (!scoreCol %in% colnames(data)) {
+        stop("Selected score not available in the current data.")
+      }
+
+      data <- data %>%
+        mutate(groupValue = if (input$rankGroup == "All samples") {
+          "All samples"
+        } else {
+          as.character(.data[[input$rankGroup]])
+        }) %>%
+        select(sampleID, drug, groupValue, dplyr::all_of(scoreCol)) %>%
+        distinct()
+
+      groupSummary <- data %>%
+        group_by(groupValue, drug) %>%
+        summarise(groupScore = if (input$rankSummary == "mean") {
+          mean(.data[[scoreCol]], na.rm = TRUE)
+        } else {
+          median(.data[[scoreCol]], na.rm = TRUE)
+        }, .groups = "drop")
+
+      sampleScores <- data %>%
+        filter(sampleID == input$rankSampleID)
+      if (nrow(sampleScores) == 0) {
+        stop("Selected sample has no score data in the current filter.")
+      }
+      colnames(sampleScores)[which(colnames(sampleScores) == scoreCol)] <- "sampleScore"
+
+      sampleScores %>%
+        left_join(groupSummary, by = c("groupValue", "drug")) %>%
+        mutate(diff = sampleScore - groupScore,
+               rank = dplyr::dense_rank(desc(diff))) %>%
+        arrange(desc(diff)) %>%
+        head(as.integer(input$rankTopN))
+    })
+
+    output$rankWaterfall <- renderPlotly({
+      req(rankData())
+      df <- rankData() %>% mutate(drug = factor(drug, levels = unique(drug)))
+      p <- ggplot(df, aes(x = drug, y = diff, fill = diff > 0)) +
+        geom_col() +
+        coord_flip() +
+        scale_fill_manual(values = c("TRUE" = "steelblue", "FALSE" = "salmon"), guide = FALSE) +
+        labs(x = "Drug",
+             y = paste0(input$rankScore, " - ", input$rankSummary, " group"),
+             title = paste0("Waterfall ranking for sample ", input$rankSampleID),
+             subtitle = if (input$rankGroup == "All samples") "Compared to global summary" else paste0("Compared to ", input$rankGroup, " summary")) +
+        theme_minimal()
+      ggplotly(p) %>% config(displayModeBar = FALSE)
+    })
+
+    output$rankTable <- DT::renderDataTable({
+      req(rankData())
+      rankData() %>%
+        select(rank, drug, sampleScore, groupScore, diff) %>%
+        arrange(rank) %>%
+        DT::datatable(rownames = FALSE, options = list(pageLength = 25, scrollX = TRUE))
+    })
   }
-  ##############################################################################
-  # Panel 8, Drug ranking
-  ##############################################################################
-
-
-
   return(serve)
 }
 

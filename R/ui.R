@@ -347,6 +347,29 @@ seleDrugUI <- function(id) {
                                   plotOutput("bayesPlotPanel", width = 1000, height = 800)),
 
                )
+             )),
+    # Panel 8 - Drug Effect Ranking
+    tabPanel("Drug Effect Ranking",
+             titlePanel("Drug Effect Ranking"),
+             sidebarLayout(
+               sidebarPanel(
+                 tags$div(
+                   style = "border: 1px solid #ddd; padding: 10px; margin-bottom: 10px;",
+                   uiOutput("rankScoreBox"),
+                   uiOutput("rankGroupBox"),
+                   uiOutput("rankSampleBox"),
+                   radioButtons("rankSummary", "Group summary statistic",
+                                choices = c("Mean" = "mean", "Median" = "median"),
+                                selected = "median"),
+                   checkboxInput("rankUseCorrected", "Use corrected score when available", value = FALSE),
+                   numericInput("rankTopN", "Number of drugs to show", value = 30, min = 5, step = 5),
+                   actionButton("rankPlotButton", "Update ranking", align = "center")
+                 )
+               ),
+               mainPanel(
+                 plotlyOutput("rankWaterfall", width = 1000, height = 600),
+                 DTOutput("rankTable")
+               )
              ))
   )
 }
