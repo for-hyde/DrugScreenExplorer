@@ -1451,11 +1451,17 @@
 
       if (!is.null(input$seleFactor)) {
         # subset the screen data according to the selection
-        if (!is.null(input$selectGroup2) && input$selectGroup2 == "All samples") {
+        if (is.null(input$selectGroup2) || input$selectGroup2 == "All samples") {
           plotTab <- filter(filteredData(), wellType == "sample")
-        } else {
-          selePlates <- filteredData()[unlist(filteredData()[, input$selectGroup2]) %in% input$seleSub2, ]$fileName
+        } else if (input$selectGroup2 %in% names(filteredData()) &&
+                   !is.null(input$seleSub2) && length(input$seleSub2) > 0) {
+          selePlates <- filteredData() %>%
+            filter(.data[[input$selectGroup2]] %in% input$seleSub2) %>%
+            pull(fileName) %>%
+            unique()
           plotTab <- filter(filteredData(), fileName %in% selePlates, wellType == "sample")
+        } else {
+          plotTab <- filter(filteredData(), wellType == "sample")
         }
 
         if (!is.null(input$ifCorrected3)) {
@@ -1469,10 +1475,14 @@
 
         colType <- colClass()[input$seleFactor]
         plotTab <- group_by(plotTab, drug, sampleID) %>%
-          summarise(viab = mean(viab)) %>%
+          summarise(viab = mean(viab, na.rm = TRUE), .groups = "drop") %>%
           ungroup() %>%
           mutate(status = filteredData()[match(sampleID, filteredData()$sampleID), ][[input$seleFactor]]) %>%
-          filter(!is.na(status))
+          filter(!is.na(status), !is.na(viab))
+
+        if (nrow(plotTab) == 0) {
+          return(plotTab)
+        }
 
         if (colType != "continuous")
           plotTab$status <- as.factor(as.character(plotTab$status))
@@ -1492,12 +1502,28 @@
 
         if (!is.null(input$seleFactor) && !is.null(testInput())) {
           colType <- colClass()[input$seleFactor]
-          testTab <- testInput() %>%
-            group_by(drug) %>%
-            nest()
+          testTabInput <- testInput()
+
+          if (nrow(testTabInput) == 0) {
+            errorMsg("No valid data remained after filtering for the selected summary and grouping.")
+            return(tibble())
+          }
+
+          if (length(unique(na.omit(testTabInput$status))) < 2) {
+            errorMsg("The selected grouping variable must have at least two non-missing groups for testing.")
+            return(tibble())
+          }
 
           if (colType == "binary") {
+            if (min(table(na.omit(testTabInput$status))) < 2) {
+              errorMsg("Each group needs at least two observations for a t-test.")
+              return(tibble())
+            }
+
             testParam <- input$seleParam == "Equal variance"
+            testTab <- testTabInput %>%
+              group_by(drug) %>%
+              nest()
             res <- mutate(testTab, model = map(data, ~ t.test(viab ~ status, ., var.equal = TRUE))) %>%
               mutate(out = map(model, broom::tidy)) %>%
               unnest(out) %>%
@@ -1508,6 +1534,9 @@
 
           } else if (colType == "continuous") {
             testParam <- ifelse(input$seleParam != "Nonparametric (Spearman)", "pearson", "spearman")
+            testTab <- testTabInput %>%
+              group_by(drug) %>%
+              nest()
             res <- mutate(testTab,
                           model = map(data, ~ cor.test( ~ viab + status, ., method = testParam))) %>%
               mutate(out = map(model, broom::tidy)) %>%
@@ -1518,6 +1547,9 @@
               arrange(p.value)
 
           } else if (colType == "categorical") {
+            testTab <- testTabInput %>%
+              group_by(drug) %>%
+              nest()
             res <- mutate(testTab, model = map(data, ~ aov(lm(viab ~ status, .)))) %>%
               mutate(out = map(model, broom::tidy)) %>%
               unnest(out) %>%
@@ -1559,11 +1591,19 @@
         pTab <- testRes()
         colType <- colClass()[input$seleFactor]
 
-        if (!is.null(input$testRes_row_last_clicked)) {
-          drugSelect <- pTab$drug[input$testRes_row_last_clicked]
+        if (is.null(pTab) || nrow(pTab) == 0) {
+          return(NULL)
+        }
 
+        if (!is.null(input$testRes_row_last_clicked) &&
+            input$testRes_row_last_clicked %in% seq_len(nrow(pTab))) {
+          drugSelect <- pTab$drug[input$testRes_row_last_clicked]
         } else {
           drugSelect <- pTab$drug[1]
+        }
+
+        if (length(drugSelect) == 0 || is.na(drugSelect) || !drugSelect %in% plotTab$drug) {
+          return(NULL)
         }
 
         plotTab <- filter(plotTab, drug == drugSelect)
@@ -1610,8 +1650,8 @@
     # text
     output$warningtext <- renderText(
       if (is.null(input$sampleAnnotations))
-        paste0("Please first select a feature for comparison in `sample overview`
-             page: Select sample information to display")
+        paste("Please first select a feature for comparison in the Data Preprocessing tab,",
+              "under the Sample Overview section, then choose sample information to display.")
     )
 
 
