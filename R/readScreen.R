@@ -145,22 +145,36 @@ readScreen <- function(rawDir,
     stop("Duplicated file names found")
   }
 
-  # read screening data plate by plate
   screenData <- lapply(rawFileList, function(eachFile) {
     plateData <- tryCatch({
-      readPlate(plateFile = paste0(rawDir, "/", eachFile),
-                rowRange = rowRange,
-                colRange = colRange,
-                sep = sep,
-                commaAsDecimal = commaAsDecimal,
-                allowNA = allowNA) %>%
-        dplyr::mutate(fileName = eachFile)
-    }, error = function(e) {
-      # Just modify the error message without creating a new error
+      extract_plate_block(
+        file_path = paste0(rawDir,"/",eachFile)
+      ) %>% dplyr::mutate(fileName = eachFile)
+    }, error = function(e){
       e$message <- sprintf("Error reading %s: %s", eachFile, e$message)
       stop(e)
-      })
+    })
+
   }) %>% bind_rows()
+
+  # Convert to
+
+  # # read screening data plate by plate
+  # screenData <- lapply(rawFileList, function(eachFile) {
+  #   plateData <- tryCatch({
+  #     readPlate(plateFile = paste0(rawDir, "/", eachFile),
+  #               rowRange = rowRange,
+  #               colRange = colRange,
+  #               sep = sep,
+  #               commaAsDecimal = commaAsDecimal,
+  #               allowNA = allowNA) %>%
+  #       dplyr::mutate(fileName = eachFile)
+  #   }, error = function(e) {
+  #     # Just modify the error message without creating a new error
+  #     e$message <- sprintf("Error reading %s: %s", eachFile, e$message)
+  #     stop(e)
+  #     })
+  # }) %>% bind_rows()
 
   # add sample annotations to screenData
   screenData <- left_join(screenData, sampleAnno, by = "fileName")

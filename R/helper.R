@@ -1,64 +1,65 @@
 # Some helper functions
 ## Function to read screen data from one plate
 
-readPlate <- function(plateFile,
-                      rowRange = c(3, 18),
-                      colRange = 2,
-                      sep = "[;\t]",
-                      commaAsDecimal = FALSE,
-                      allowNA = FALSE) {
-
-  if (grepl(",", sep) & commaAsDecimal)
-    stop("Comma can not be used as a separator and the demical at the same time.")
-
-  txt <- readLines(plateFile)
-
-  if (length(rowRange) == 1) {
-    rowRange <- c(rowRange, length(txt))
-  }
-
-  sp <- lapply(seq(rowRange[1], rowRange[2]), function(x) {
-
-    if (commaAsDecimal) {
-      txtSp <- gsub("[,]", ".", txt[x])
-    } else {
-      txtSp <- txt[x]  #only ',' or '.' as decimal
-    }
-
-    txtSp <- strsplit(txtSp, split = sep)[[1]]
-    #txtSp <- txtSp[txtSp != ""]
-    if (length(colRange) == 1)
-      colRange <- c(colRange, length(txtSp))
-    txtSp <- txtSp[seq(colRange[1], colRange[2])]
-  })
-
-  # check whether all the rows have the same length.
-  rowNum <- length(sp)
-  colNum <- unique(vapply(sp, length, numeric(1)))
-
-  if (length(colNum) != 1) {
-    stop("Numbers of the values in rows are different.")
-  }
-
-  rowID <- genRowIDs(rowNum)
-  colID <- genColIDs(colNum)
-  rowID <- rep(rowID, each = colNum)
-  colID <- rep(colID, times = rowNum)
-
-  df <- tibble::tibble(wellID = paste0(rowID, colID), rowID = rowID,
-                       colID = colID, value = as.numeric(unlist(sp)))
-
-  if (any(is.na(df$value))) {
-    if (allowNA) {
-      warning("NA values detected in plate")
-    } else {
-      stop("NA values detected in plate.
-           If NA values should be allowed, please set the 'allowNA = TRUE'")
-    }
-  }
-
-  return(df)
-}
+# Function has been replaced by extract_plate_block function below. Holding onto for testing purposes now.
+# readPlate <- function(plateFile,
+#                       rowRange = c(3, 18),
+#                       colRange = 2,
+#                       sep = "[;\t]",
+#                       commaAsDecimal = FALSE,
+#                       allowNA = FALSE) {
+#
+#   if (grepl(",", sep) & commaAsDecimal)
+#     stop("Comma can not be used as a separator and the demical at the same time.")
+#   # Replace this block of code with function extract_plate_block 13-42
+#   txt <- readLines(plateFile)
+#
+#   if (length(rowRange) == 1) {
+#     rowRange <- c(rowRange, length(txt))
+#   }
+#
+#   sp <- lapply(seq(rowRange[1], rowRange[2]), function(x) {
+#
+#     if (commaAsDecimal) {
+#       txtSp <- gsub("[,]", ".", txt[x])
+#     } else {
+#       txtSp <- txt[x]  #only ',' or '.' as decimal
+#     }
+#
+#     txtSp <- strsplit(txtSp, split = sep)[[1]]
+#     #txtSp <- txtSp[txtSp != ""]
+#     if (length(colRange) == 1)
+#       colRange <- c(colRange, length(txtSp))
+#     txtSp <- txtSp[seq(colRange[1], colRange[2])]
+#   })
+#
+#   # check whether all the rows have the same length.
+#   rowNum <- length(sp)
+#   colNum <- unique(vapply(sp, length, numeric(1)))
+#
+#   if (length(colNum) != 1) {
+#     stop("Numbers of the values in rows are different.")
+#   }
+#
+#   rowID <- genRowIDs(rowNum)
+#   colID <- genColIDs(colNum)
+#   rowID <- rep(rowID, each = colNum)
+#   colID <- rep(colID, times = rowNum)
+#
+#   df <- tibble::tibble(wellID = paste0(rowID, colID), rowID = rowID,
+#                        colID = colID, value = as.numeric(unlist(sp)))
+#
+#   if (any(is.na(df$value))) {
+#     if (allowNA) {
+#       warning("NA values detected in plate")
+#     } else {
+#       stop("NA values detected in plate.
+#            If NA values should be allowed, please set the 'allowNA = TRUE'")
+#     }
+#   }
+#
+#   return(df)
+# }
 
 ## Function to make pdf for a list of ggplot objects
 makepdf <- function(x, name, ncol = 3, nrow = 2, width = 20, height = 12) {
@@ -465,3 +466,76 @@ plotEdgeEffect <- function(matPlate, plateList, limits) {
   return(plotList)
 }
 
+#Experimental function for automated parsing of raw datafiles. Takes file path,
+# then extracts the well plate information based on regex parsing.
+extract_plate_block <- function(file_path){
+    #Read in lines
+    raw_lines <- readLines(file_path, warn = FALSE)
+
+    # This regex catches 'A,' or 'A\t' or 'A;' or ',A,'
+    start_idx <- grep("^(,)?A(,|\\t|;)", raw_lines)
+
+    # Check if a start has been found
+    if (length(start_idx) == 0){
+      stop("Could not Automatically locate the start of the plate grid (Row A)")
+    }
+
+    target_line <- raw_lines[start_idx[1]]
+    delim <- if (grepl("\\t", target_line)) "\t" else if (grepl(";", target_line)) ";" else ","
+
+    #Set header as row directly above A
+    header_idx <- start_idx[1] - 1
+
+    #Dynamically determine plate size by counting elements in the header row
+    header_elements <- strsplit(raw_lines[header_idx], delim)[[1]]
+    # Remove empty elements to get an accurate count of column headers
+    num_cols <- length(header_elements[header_elements != ""])
+
+    #set number of rows based on known row-ratios from column numbers.
+    rows_lookup <- c(
+      `3`  = 2,
+      `4`  = 3,
+      `6`  = 4,
+      `8`  = 6,
+      `12` = 8,
+      `24` = 16,
+      `48` = 32
+    )
+    row_count <- rows_lookup[as.character(num_cols)]
+    end_idx <- header_idx + row_count
+
+    #Extract the text block
+    isolated_lines <- raw_lines[header_idx:end_idx]
+
+    #Read text block as matrix
+    raw_matrix <- do.call(rbind, strsplit(isolated_lines, delim))
+
+    raw_matrix[1,1] <- "RowLetter"
+
+    plate_df <- as.data.frame(raw_matrix[-1, , drop = FALSE], stringsAsFactors = FALSE)
+    colnames(plate_df) <- raw_matrix[1, ]
+
+    colnames(plate_df)[1] <- ""
+
+    #Convert to desired data frame structure using plater.
+    #Make temp file
+    temp_file <- tempfile(fileext = ".csv")
+    on.exit(unlink(temp_file), add = TRUE)
+
+    #Save to tempfile
+    readr::write_csv(plate_df, file = temp_file)
+    #Read in using plater
+    screenData <- plater::read_plate(temp_file)
+
+    #Create rowID and colID columns, format wellID column
+    screenData <- screenData %>%
+      extract(Wells, into = c("row_letter", "colID"), regex = "([A-Z]+)(\\d+)", remove = FALSE) %>%
+      mutate(
+        rowID = paste0(row_letter, "0"),
+        wellID = paste0(row_letter, str_pad(colID, width =3, pad = "0")),
+        value = as.numeric(values)
+      ) %>%
+      select(wellID, rowID, colID, value)
+
+    return(screenData)
+}
