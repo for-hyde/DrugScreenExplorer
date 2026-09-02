@@ -112,7 +112,9 @@ seleDrugUI <- function(id) {
                  textOutput("readScreen_message"),
                  uiOutput("sampleInfo_ui"),
                  uiOutput("normTable_ui"),
+                 plotOutput("edgeEffectPlot", width = "100%", height = 700),
                  uiOutput("downloadUI") #Generate report
+
 
                )
              )
@@ -190,7 +192,7 @@ seleDrugUI <- function(id) {
                                 c("Heatmap","PCA","t-SNE", "Drug-drug correlation"),
                                 selected = "Heatmap"),
                    conditionalPanel(condition = "input.plotType == 't-SNE'",
-                                    numericInput("perplex", "Perplexity", value =20),
+                                    numericInput("perplex", "Perplexity", value =2),
                                     numericInput("Niter", "Iteration round", value = 1000)),
                    conditionalPanel(condition = "input.plotType == 'Heatmap'",
                                     radioButtons("ifRowNorm",

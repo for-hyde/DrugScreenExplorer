@@ -85,7 +85,7 @@
       return(out)
     })
 
-
+## - Section Used to select range of files and Separator index. Regex expression should be enough. Marked to delete.
     # row Range
     output$getRange <- renderUI({
 
@@ -129,7 +129,7 @@
                     "Commas is used as decimal in the input data",
                     value = FALSE)
     })
-
+## -
 
     output$discardLayerInput <- renderUI({
       req(input$fileInput)
@@ -165,7 +165,7 @@
 
     #-----------------------------------------------------------------------------
     # 1.1 import data
-
+## - Replace eventReactive with bindEvent..
     processedScreenData <- eventReactive(input$doImport, {
 
       req(input$fileInput,
@@ -457,6 +457,34 @@
     #-----------------------------------------------------------------------------
     # 1.3 adjust incubation effect
     # Placement should be adjusted?? -FH
+    output$edgeEffectPlot <- renderPlot({
+    req(screenData())
+
+    fitsD <- tryCatch({
+      fitEdgeEffect(screenData(),
+                    estimateMethod = input$estimateMethod,
+                    useNeg = input$useNeg,
+                    span = ifelse(is.null(input$span), 1, input$span),
+                    correctMethod = input$correctMethod)
+    }, error = function(e) {
+      message <- warningMessage(paste("Error:", e$message))
+      list(message = message)
+    })
+
+    plate_plots <- plotPlate(
+      screenData(),
+      plotPlate = unique(screenData()$fileName),
+      plotType = "edgeEffect",
+      ifCorrected = FALSE
+    )
+
+    if (length(plate_plots) == 1) {
+      plate_plots[[1]]
+    } else {
+      gridExtra::grid.arrange(grobs = plate_plots, ncol = 2)
+    }
+  })
+
 
     output$estimateMethod <- renderUI({
       # if (input$normalization) {
@@ -559,6 +587,7 @@
         hideTab(inputId = "tabs", target = "Dose-response curves")
         hideTab(inputId = "tabs", target = "Clustering")
         hideTab(inputId = "tabs", target = "Association test")
+        hideTab(inputId = "tabs", target = "Drug Effect Ranking")
         showTab(inputId = "tabs", target = "Plate plot")
         showTab(inputId = "tabs", target = "Overview of Two-Drug Combination")
         showTab(inputId = "tabs", target = "Drug Combination Effects")
@@ -569,6 +598,7 @@
         showTab(inputId = "tabs", target = "Plate plot")
         showTab(inputId = "tabs", target = "Clustering")
         showTab(inputId = "tabs", target = "Association test")
+        showTab(inputId = "tabs", target = "Drug Effect Ranking")
       }
     })
 
@@ -1238,6 +1268,8 @@
       viabMat <- plotMat()$viabMat
       idMap <- plotMat()$idMap
 
+      grid::grid.newpage() #Reset viewport
+
       # why play with the sampleID
       annoCol <- tibble(sampleID_new = colnames(viabMat),
                         sampleID = idMap[match(colnames(viabMat), idMap$new), ]$origin) %>%
@@ -1285,12 +1317,10 @@
                      cluster_cols = hc,
                      silent = TRUE)
         }
-        g
 
       } else if (input$plotType == "Drug-drug correlation") {
 
         g <- pheatmap(cor(t(viabMat), method = "spearman"), silent = TRUE)
-        g
 
       } else {
 
@@ -1322,8 +1352,13 @@
           g <- g + scale_color_gradient(low = "blue", high = "red")
         }
       }
-
-      return(g)
+      if(!(input$plotType %in% c("t-SNE","PCA"))){
+        grid::grid.draw(g$gtable)
+        grid::popViewport(0)
+      }
+      else{
+        return(g)
+      }
     })
 
     output$clusterPlot <- renderPlot({
