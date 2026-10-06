@@ -327,7 +327,7 @@ detectClass <- function(x) {
 }
 
 
-#- plot viability heatmap for each plates
+#- plot viability heatmap for each plate
 plotViability <- function(matPlate, plateList, limits, ifCorrected) {
 
   # plot normalized ATP count (viability))
@@ -538,4 +538,62 @@ extract_plate_block <- function(file_path){
       select(wellID, rowID, colID, value)
 
     return(screenData)
+}
+
+# Function used to calculate DSS1, DSS2, and DSS3 scores based on the provided viability and concentration. Is called by summariseScreen. 
+calcDSS <- function(value, conc, dssType = "DSS2", threshold = 10) {
+  
+  # 1. Clean, aggregate replicates, and sort 
+  valueConc <- data.frame(viab = value, conc = conc) %>%
+    dplyr::filter(!is.na(conc) & conc > 0) %>%
+    dplyr::group_by(conc) %>%
+    dplyr::summarise(viab = mean(viab)) %>%
+    dplyr::ungroup() %>%
+    dplyr::arrange(conc)
+
+  # 2. Convert viability (0 to 1 scale) to inhibition percentage (0 to 100 scale)
+  # Inhibition = (1 - viability) * 100
+  valueConc <- dplyr::mutate(valueConc, inhibition = (1 - viab) * 100)
+
+  # 3. Handle edge cases where there are insufficient points
+  if (nrow(valueConc) %in% c(0, 1)) {
+    return(0)
+  } else {
+    
+    # Total log10 concentration span (x2 - x1)
+    total_span <- log10(valueConc$conc[nrow(valueConc)] / valueConc$conc[1])
+    
+    if (total_span <= 0) return(0)
+    
+    areaTotal <- 0
+    for (i in seq(nrow(valueConc) - 1)) {
+      # Threshold the inhibition at 'threshold' (ignore background noise below threshold)
+      h1 <- max(0, valueConc$inhibition[i] - threshold)
+      h2 <- max(0, valueConc$inhibition[i + 1] - threshold)
+      
+      # Trapezoidal area using log10 concentration intervals
+      width <- log10(valueConc$conc[i + 1] / valueConc$conc[i])
+      areaEach <- (h1 + h2) * 0.5 * width
+      
+      areaTotal <- areaTotal + areaEach
+    }
+    
+    # Maximum possible area if 100% inhibition was achieved across the whole span
+    max_area <- (100 - threshold) * total_span
+    
+    if (max_area <= 0) return(0)
+    
+    # Calculate final DSS (normalized to 0-100 scale)
+    dss_score <- (areaTotal / max_area) * 100
+
+    if (dssType == "DSS2") {
+        dss_score <- dss_score / total_span
+      } else if (dssType == "DSS3") {
+        active_conc <- valueConc$conc[valueConc$inhibition > threshold]
+        active_span <- if (length(active_conc) > 1) log10(tail(active_conc, 1) / head(active_conc, 1)) else 0
+        dss_score <- dss_score * (max(0, active_span) / total_span)
+      } 
+      
+    return(dss_score)
+  }
 }

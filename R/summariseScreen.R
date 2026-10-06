@@ -25,6 +25,8 @@
 #'under curve. Used for method = "IC50". See \code{sumIC50()}.
 #'@param maxConc, upper bound of concentrations for the integration of area
 #'under curve. Used for method = "IC50". See \code{sumIC50()}.
+#' @param dssType, type of DSS score to calculate. Options are "DSS1", "DSS2", and "DSS3". 
+#' @param dssT, threshold for DSS score calculation. 
 #' @export
 #' @import  tidyr
 #' @importFrom dr4pl dr4pl
@@ -52,6 +54,17 @@
 #'
 #' If the logistic model can not be fitted for a certain drug, the above four
 #' values will be set to NA.
+#' 
+#' If \code{method = 'DSS'}
+#' 
+#' \item{DSS}{the drug sensitivity score calculated based on the viability and concentration values.
+#' The DSS1 score is a normalized version of the AUC that will only consider the drug effect above a 
+#' a user-defined threshold. The DSS score is calculated using the \code{calcDSS()} function. The DSS2
+#' score is further normalized by comparing the DSS1 score to the maximum possible AUC for the given 
+#' concentration range. The DSS3 score is a modified version of the DSS2 score that takes into 
+#' account the slope of the dose-response curve.}
+#' 
+#'
 #'
 #' If a column that contains the edge/incubation effect corrected viability
 #' values is present in the input data frame,
@@ -67,7 +80,8 @@
 
 summariseScreen <- function(screenData,
                             method = c("average", "AUC", "IC50", "DSS"),
-                            minConc = 0, maxConc = 15) {
+                            minConc = 0, maxConc = 15,
+                            dssType = "DSS2", dssT = 10) {
 
   # check if necessary columns are present in the input data
   if (!all(c("drug", "concentration", "sampleID") %in% colnames(screenData))) {
@@ -201,16 +215,18 @@ summariseScreen <- function(screenData,
     screenData <- left_join(screenData, sumTab, by = c("sampleID", "drug"))
   }
 
-  #Add section for calculating DSS score. FH
+    # Add section for calculating DSS score. FH
   if ("DSS" %in% method) {
     if (ifCor) {
       sumTab <- grouped_subData %>%
-        dplyr::summarise(DSS = calcDSS(viab, concentration),
-                         DSS.cor = calcDSS(viab.cor, concentration)) %>%
+        dplyr::summarise(DSS = calcDSS(viab, concentration, dssType = dssType,
+                                       threshold = dssT),
+                         DSS.cor = calcDSS(viab.cor, concentration,
+                                           dssType = dssType, threshold = dssT)) %>%
         ungroup()
     } else {
       sumTab <- grouped_subData %>%
-        dplyr::summarise(DSS = calcDSS(viab, concentration)) %>%
+        dplyr::summarise(DSS = calcDSS(viab, concentration, dssType = dssType, threshold = dssT)) %>%
         ungroup()
     }
 
