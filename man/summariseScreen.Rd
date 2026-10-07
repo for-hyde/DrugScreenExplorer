@@ -6,7 +6,7 @@
 \usage{
 summariseScreen(
   screenData,
-  method = c("average", "AUC", "IC50"),
+  method = c("average", "AUC", "IC50", "DSS"),
   minConc = 0,
   maxConc = 15
 )

@@ -42,6 +42,8 @@ seleDrugUI <- function(id) {
                    h3(tags$b("1 File Import"), style = "background-color: lightgray; padding: 10px;"),
 
                    fileInput("fileInput", "Choose ZIP File", accept = ".zip"),
+                   # Add additional toggle for selecting from ZIP or selecting individual files.
+                   
                    bsTooltip(id = "fileInput", title = "A Zip File containing plateAnno, wellAnno, and rawData"),
                    textOutput("pathDisplay") %>%
                      tagAppendAttributes(style = "color: gray; margin-top: 0; font-size: 10px"),
@@ -112,7 +114,7 @@ seleDrugUI <- function(id) {
                  textOutput("readScreen_message"),
                  uiOutput("sampleInfo_ui"),
                  uiOutput("normTable_ui"),
-                 plotOutput("edgeEffectPlot", width = "100%", height = 700),
+#                 plotOutput("edgeEffectPlot", width = "100%", height = 700), Just get rid of this plot for now. Move to
                  uiOutput("downloadUI") #Generate report
 
 
