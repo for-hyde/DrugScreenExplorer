@@ -557,7 +557,7 @@ calcDSS <- function(value, conc, dssType = "DSS2", threshold = 10) {
 
   # 3. Handle edge cases where there are insufficient points
   if (nrow(valueConc) %in% c(0, 1)) {
-    return(0)
+    return(NaN) # Not enough data points to calculate DSS
   } else {
     
     # Total log10 concentration span (x2 - x1)

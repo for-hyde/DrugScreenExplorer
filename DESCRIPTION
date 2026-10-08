@@ -45,7 +45,8 @@ Imports:
     scales,
     shiny,
     ggbeeswarm,
-    kableExtra
+    kableExtra,
+    plater
 Suggests: 
     bayesynergy,
     knitr,
