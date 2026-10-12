@@ -62,6 +62,18 @@ normalizePlate <- function(screenData,
   method <- match.arg(method, c("negatives", "NPI"))
   stopifnot(is.numeric(discardLayer))
 
+  if (!is.logical(bySample)) {
+    stop("bySample must be a logical value, either TRUE or FALSE")
+  }
+  if (!all(c("sampleID", "fileName", "wellType", "value") %in%
+           colnames(screenData))) {
+    stop("screenData must contain the following columns: sampleID, fileName,
+         wellType, and value")
+  }
+  if (!is.numeric(discardLayer) || discardLayer < 0) {
+    stop("discardLayer must be a non-negative integer")
+  }
+
   if (discardLayer > 0) {
 
     # generate a list of wellIDs that need to be ignored when summarizing
