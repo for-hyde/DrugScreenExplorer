@@ -50,3 +50,6 @@ inst/doc/
 # IDE specific (optional)
 .vscode/
 .idea/
+
+#Reports
+report/*

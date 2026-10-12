@@ -12,7 +12,7 @@
 #' \code{readScreen()} function
 #' @param method a character string or a vector of character strings specifying
 #' the method to summarize the drug effects.
-#'  There are currently three methods available: average, AUC, and IC50.
+#'  There are currently four methods available: average, AUC, DSS, and IC50.
 #'  The average method calculates the average drug effect across all concentrations.
 #'  The AUC method calculates the normalized area under the dose-response curve
 #'  using the trapezoidal method.
@@ -25,8 +25,8 @@
 #'under curve. Used for method = "IC50". See \code{sumIC50()}.
 #'@param maxConc, upper bound of concentrations for the integration of area
 #'under curve. Used for method = "IC50". See \code{sumIC50()}.
-#' @param dssType, type of DSS score to calculate. Options are "DSS1", "DSS2", and "DSS3". 
-#' @param dssT, threshold for DSS score calculation. 
+#' @param dssType, type of DSS score to calculate. Options are "DSS1", "DSS2", and "DSS3". (default is "DSS2")
+#' @param dssThreshold, threshold for DSS score calculation provided as a percentage. Should be a numeric value between 0 and 100. (default is 10)
 #' @export
 #' @import  tidyr
 #' @importFrom dr4pl dr4pl
@@ -81,12 +81,38 @@
 summariseScreen <- function(screenData,
                             method = c("average", "AUC", "IC50", "DSS"),
                             minConc = 0, maxConc = 15,
-                            dssType = "DSS2", dssT = 10) {
+                            dssType = "DSS2", dssThreshold = 10) {
 
   # check if necessary columns are present in the input data
-  if (!all(c("drug", "concentration", "sampleID") %in% colnames(screenData))) {
-    stop("No information of drug name, concentration or fileName found")
+  if (!all(c("drug", "concentration", "sampleID", "wellType", "normVal") %in% colnames(screenData))) {
+    stop("screenData must contain: sampleID, drug, concentration, wellType, and normVal.")
   }
+
+  # Ensure method name is valid
+  valid_methods <- c("average", "AUC", "IC50", "DSS")
+
+  if (!is.character(method) ||
+      length(method) == 0 ||
+      anyNA(method) ||
+      any(!method %in% valid_methods)) {
+    stop("method must contain one or more valid method names.")
+  }
+  
+  #Ensure that the dssType is valid
+  if (dssType %in% c("DSS1", "DSS2", "DSS3")) {
+    dssType <- dssType
+  } else {
+    stop("Invalid DSS type. Please choose from 'DSS1', 'DSS2', or 'DSS3'.")
+  }
+
+  if (length(dssThreshold) != 1 ||
+      !is.numeric(dssThreshold) ||
+      !is.finite(dssThreshold) ||
+      dssThreshold < 0 ||
+      dssThreshold >= 100) {
+    stop("dssThreshold must be one finite numeric value in [0, 100).")
+  }
+
 
   # Check if the 'normVal.cor' column is present
   ifCor <- "normVal.cor" %in% colnames(screenData)
@@ -217,16 +243,17 @@ summariseScreen <- function(screenData,
 
     # Add section for calculating DSS score. FH
   if ("DSS" %in% method) {
+
     if (ifCor) {
       sumTab <- grouped_subData %>%
         dplyr::summarise(DSS = calcDSS(viab, concentration, dssType = dssType,
-                                       threshold = dssT),
+                                       threshold = dssThreshold),
                          DSS.cor = calcDSS(viab.cor, concentration,
-                                           dssType = dssType, threshold = dssT)) %>%
+                                           dssType = dssType, threshold = dssThreshold)) %>%
         ungroup()
     } else {
       sumTab <- grouped_subData %>%
-        dplyr::summarise(DSS = calcDSS(viab, concentration, dssType = dssType, threshold = dssT)) %>%
+        dplyr::summarise(DSS = calcDSS(viab, concentration, dssType = dssType, threshold = dssThreshold)) %>%
         ungroup()
     }
 

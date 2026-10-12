@@ -218,9 +218,9 @@ fitOneSigmoid <- function(plateData, useNeg, useLowConcentrations, lowConcTab) {
 
 
 # Function to calculate AUC using linear-log (on X) trapezoidal method
-
+# Use summariseScreen() to calculate AUC.
 calcAUC <- function(value, conc, viabCut = NULL) {
-
+  
   valueConc <- data.frame(viab = value, conc = conc) %>%
     dplyr::filter(!is.na(conc) & conc > 0) %>%
     dplyr::group_by(conc) %>%
@@ -555,45 +555,64 @@ calcDSS <- function(value, conc, dssType = "DSS2", threshold = 10) {
   # Inhibition = (1 - viability) * 100
   valueConc <- dplyr::mutate(valueConc, inhibition = (1 - viab) * 100)
 
-  # 3. Handle edge cases where there are insufficient points
+  # Determine number of points above inhibition threshold
+  num_points_above_threshold <- sum(valueConc$inhibition > threshold)
+  if (num_points_above_threshold < 2) {
+    return(NaN) # Not enough data points above threshold to calculate DSS
+  }
+
+  # Handle edge cases where there are insufficient points
   if (nrow(valueConc) %in% c(0, 1)) {
     return(NaN) # Not enough data points to calculate DSS
   } else {
     
-    # Total log10 concentration span (x2 - x1)
+    # Total log10 concentration span (max(x) - min(x))
     total_span <- log10(valueConc$conc[nrow(valueConc)] / valueConc$conc[1])
     
-    if (total_span <= 0) return(0)
-    
-    areaTotal <- 0
-    for (i in seq(nrow(valueConc) - 1)) {
-      # Threshold the inhibition at 'threshold' (ignore background noise below threshold)
-      h1 <- max(0, valueConc$inhibition[i] - threshold)
-      h2 <- max(0, valueConc$inhibition[i + 1] - threshold)
-      
-      # Trapezoidal area using log10 concentration intervals
-      width <- log10(valueConc$conc[i + 1] / valueConc$conc[i])
-      areaEach <- (h1 + h2) * 0.5 * width
-      
-      areaTotal <- areaTotal + areaEach
-    }
-    
-    # Maximum possible area if 100% inhibition was achieved across the whole span
-    max_area <- (100 - threshold) * total_span
-    
-    if (max_area <= 0) return(0)
-    
-    # Calculate final DSS (normalized to 0-100 scale)
-    dss_score <- (areaTotal / max_area) * 100
+    # Effective log10 concentration span (max(x) - min(x)) for points above threshold
+    active_conc <- valueConc$conc[valueConc$inhibition > threshold]
 
+    # Check there are enough points for DSS2 and DSS3 calculations
+    if (length(active_conc) > 1) {
+      active_span <- log10(tail(active_conc, 1) / head(active_conc, 1))
+    } else {
+      #If length is 1 or 0, active_span is 0. For DSS2 and DSS3, this will result in NaN being returned.
+      if (dssType %in% c("DSS2", "DSS3")) {
+        return(NaN) # Not enough active points to calculate DSS2 or DSS3
+      } else {
+        active_span <- 0 # Not required for DSS1 calculation
+      }
+    }
+
+    # Calculate the inhibition AUC using a vectorized trapezoidal rule on the
+    # log10 concentration scale. This remains separate from calcAUC(), which
+    # integrates viability rather than inhibition.
+    log_conc <- log10(valueConc$conc)
+    auc <- sum(
+      (valueConc$inhibition[-nrow(valueConc)] +
+         valueConc$inhibition[-1]) *
+        diff(log_conc) / 2
+    )
+
+    # Calculate R_max 
+    R_max <- log10(max(valueConc$inhibition))
+
+    #DSS1 calculation
+    dss_score <- (auc - threshold * active_span) / ((100 - threshold) * total_span)
+    if (dssType == "DSS1") {
+      return(dss_score)
+    }
+    #DSS2 calculation from DSS1
+    dss_score <- dss_score / R_max
     if (dssType == "DSS2") {
-        dss_score <- dss_score / total_span
-      } else if (dssType == "DSS3") {
-        active_conc <- valueConc$conc[valueConc$inhibition > threshold]
-        active_span <- if (length(active_conc) > 1) log10(tail(active_conc, 1) / head(active_conc, 1)) else 0
-        dss_score <- dss_score * (max(0, active_span) / total_span)
-      } 
-      
-    return(dss_score)
+      return(dss_score)
+    }
+
+    dss_score <- dss_score * (active_span / total_span)
+    if (dssType == "DSS3") {
+      return(dss_score)
+    }
+
+    return(NaN) # If dssType is not recognized, return NaN
   }
 }
