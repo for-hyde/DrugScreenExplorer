@@ -32,6 +32,14 @@ createPlateInput <- function(rawDir,
                              entries = c(),
                              batchAsFolder = FALSE) {
 
+  # Checks
+  if (!dir.exists(rawDir)) {
+    stop("The specified rawDir does not exist.")
+  }
+  if (!is.character(file) || length(file) != 1) {
+    stop("The 'file' parameter must be a single character string.")
+  }
+
   if (!batchAsFolder) {
 
     allFiles <- list.files(path = rawDir, recursive = TRUE)
@@ -49,6 +57,11 @@ createPlateInput <- function(rawDir,
       dplyr::bind_rows()
   }
 
+  # Check if no files found
+  if (nrow(outTable) == 0) {
+    stop("No files found in the specified rawDir.")
+  }
+
   # check for duplicated file names
   if (sum(duplicated(outTable$fileName)) > 0)
     stop("Duplicated file names found")
@@ -57,7 +70,11 @@ createPlateInput <- function(rawDir,
     outTable[[eachEntry]] <- ""
   }
 
-  readr::write_delim(outTable, file = file, delim = "\t")
+  tryCatch({
+    readr::write_delim(outTable, file = file, delim = "\t")
+  }, error = function(e) {
+    stop("Error occurred while writing the output file: ", e$message)
+  })
 
 }
 

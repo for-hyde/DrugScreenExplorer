@@ -31,6 +31,7 @@
 #' viability based on user-specified normalization method, to the input
 #' data.frame.
 #' @examples
+#'
 #' rawFolder <- system.file('testData/rawData',
 #'                           package = 'DrugScreenExplorer')
 #' plateFile <- system.file('testData/plateAnno/plateAnno.tsv',
