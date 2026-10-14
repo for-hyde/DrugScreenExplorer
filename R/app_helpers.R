@@ -468,7 +468,19 @@ plot_synergyscreen <- function(x,
   return(output)
 }
 
-
+#Small help function to estimate the number of columns for dataframes automatically. 
+find_column_count <- function(raw_dir_path, sep, skip = 0) {
+  # Determine files in path
+  files <- list.files(raw_dir_path, full.names = TRUE, recursive = TRUE)
+  # Read the first file in the directory
+  first_file <- files[1]
+  # Extract the first line of the file
+  first_line <- readLines(first_file, n = 1, skip = skip)
+  # Split the line by the specified separator and count the number of columns
+  num_columns <- length(strsplit(first_line, sep)[[1]])
+  # Return the number of columns
+  return(num_columns)
+}
 
 
 

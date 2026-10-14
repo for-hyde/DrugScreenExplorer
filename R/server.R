@@ -118,9 +118,9 @@
 
     output$sepText <- renderUI({
       req(input$fileInput)
-      textInput("sep",
+      textInput("sepText",
                 "Separator Character",
-                value = "[;\t]")
+                value = ";")
     })
 
     output$commaAsDecimalCheckBox <- renderUI({
@@ -155,11 +155,17 @@
       # }
     })
 
+    #If no range is supplied, set colRange to NULL, which will trigger automatic parsing.
     colRange <- reactive({
-      if(input$colRight == 9999)
-        input$colLeft
-      else
+      if(input$colRight == 9999){
+        end <- find_column_count(rawDir(), 
+                          input$sepText,
+                          skip = input$rowTop)#Skip to row Top  
+        c(input$colLeft, end)
+      }
+      else {
         c(input$colLeft, input$colRight)
+      }
     })
 
 
@@ -168,30 +174,54 @@
 ## - Replace eventReactive with bindEvent..
     processedScreenData <- eventReactive(input$doImport, {
 
-      req(input$fileInput,
-          input$rowTop,
-          input$rowBottom,
-          input$sep,
-          input$discardLayer)
-
+      req(input$fileInput)
+          # input$rowTop,
+          # input$rowBottom,
+          # input$sep,
+          # input$discardLayer Should only require the fileInput.
+          # )
       processedScreenData <-
-        tryCatch({result <- readScreen(rawDir = rawDir(),
+        tryCatch({
+                  #only accept ranges if manual ranges is selected.
+                  manual_ranges <- isTRUE(input$showOptions)
+                  result <- readScreen(rawDir = rawDir(),
                                        plateAnnotationFile = checkPlateAnno(),
                                        wellAnnotationFile = checkWellAnno(),
-                                       rowRange = c(input$rowTop, input$rowBottom),
-                                       colRange = colRange(),
-                                       sep = input$sep,
-                                       commaAsDecimal = input$commaAsDecimal,
+                                       sep = if (manual_ranges) {
+                                        input$sepText
+                                       } else {
+                                        ";"
+                                       },
+                                       setManualRanges = manual_ranges,
+                                       rowRange = if (manual_ranges) {
+                                        c(input$rowTop, input$rowBottom)
+                                       } else {
+                                        NULL
+                                       },
+                                       colRange = if (manual_ranges) {
+                                        colRange()
+                                       } else {
+                                        NULL
+                                       },
+                                       commaAsDecimal = if (manual_ranges) {
+                                        isTRUE(input$commaAsDecimal)
+                                       } else {
+                                        FALSE
+                                       },
                                        negWell = c(),
                                        posWell = c(),
-                                       allowNA = input$allowNA,
-                                       discardLayer = input$discardLayer,
+                                       allowNA = !isTRUE(input$allowNA),#If allowNA exists, set to TRUE, otherwise FALSE.
+                                       discardLayer = if(is.null(input$discardLayer)) 0 else input$discardLayer,
                                        normalization = FALSE)
         }, error = function(e) {
+          warning(
+            "readScreen failed:" ,
+            conditionMessage(e),
+            call. = FALSE
+          )
           message <- paste0("Error: ", conditionMessage(e))
           list(result = NULL, message = message)
         })
-
       return(processedScreenData)
     })
 

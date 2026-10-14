@@ -48,12 +48,21 @@ seleDrugUI <- function(id) {
                    textOutput("pathDisplay") %>%
                      tagAppendAttributes(style = "color: gray; margin-top: 0; font-size: 10px"),
 
-                   uiOutput("getRange"),
-                   bsTooltip("getRange", "The range of lines and columns containing actual values"),
-                   uiOutput("sepText"),
-                   bsTooltip("sepText", "Delimiters for extracting values in the text file"),
-                   uiOutput("commaAsDecimalCheckBox"),
-                   bsTooltip("commaAsDecimalCheckBox", "Whether commas is used as decimal"),
+                   # Add a checkbox for manual range selection
+                   checkboxInput("showOptions", "Manual Range Selection", value = FALSE),
+                   conditionalPanel(
+                     condition = "input.showOptions == true",
+                     wellPanel(
+                      h4("Manual Range Selection", style = "color: #2166AC"),
+                      uiOutput("getRange"),
+                      bsTooltip("getRange", "The range of lines and columns containing actual values"),
+                      uiOutput("sepText"),
+                      bsTooltip("sepText", "Delimiters for extracting values in the text file"),
+                      uiOutput("commaAsDecimalCheckBox"),
+                      bsTooltip("commaAsDecimalCheckBox", "Whether commas is used as decimal"),
+            
+                     )
+                   ),  
                    actionButton("doImport", "Import", align = "center"),
 
                    uiOutput("column_selector_ui")
