@@ -511,34 +511,58 @@ extract_plate_block <- function(file_path){
     raw_matrix <- do.call(rbind, strsplit(isolated_lines, delim))
 
     raw_matrix[1,1] <- "RowLetter"
+    # Convert to data frame
+    plate_df <- as.data.frame(raw_matrix, stringsAsFactors = FALSE)
 
-    plate_df <- as.data.frame(raw_matrix[-1, , drop = FALSE], stringsAsFactors = FALSE)
-    colnames(plate_df) <- raw_matrix[1, ]
+    screenData <- convert_plate_to_long(plate_df)
 
-    colnames(plate_df)[1] <- ""
+    return(screenData)
+}
 
-    #Convert to desired data frame structure using plater.
-    #Make temp file
-    temp_file <- tempfile(fileext = ".csv")
-    on.exit(unlink(temp_file), add = TRUE)
+# Function to convert plate layout to long format with wellID, rowID, colID, and value columns.
+convert_plate_to_long <- function(plate_df) {
+    #Extract column numbers
+    idx <- as.character(unlist(plate_df[1, -1]))
+    #remove from df
+    plate_df <- plate_df[-1, ]
+    #Set column names
+    names(plate_df) <- c("rowID", idx)
 
-    #Save to tempfile
-    readr::write_csv(plate_df, file = temp_file)
-    #Read in using plater
-    screenData <- plater::read_plate(temp_file)
+    #Convert to long format
+    plate_df <- tidyr::pivot_longer(
+      plate_df,
+      cols = -rowID,
+      names_to = "colID",
+      values_to = "values"
+    )
 
-    #Create rowID and colID columns, format wellID column
-    screenData <- screenData %>%
-      extract(Wells, into = c("row_letter", "colID"), regex = "([A-Z]+)(\\d+)", remove = FALSE) %>%
+    screenData <- plate_df %>%
       mutate(
-        rowID = paste0(row_letter, "0"),
-        wellID = paste0(row_letter, str_pad(colID, width =3, pad = "0")),
+        wellID = paste0(rowID, str_pad(colID, width = 3, pad = "0")),
         value = as.numeric(values)
       ) %>%
       select(wellID, rowID, colID, value)
 
     return(screenData)
+
+    # temp_file <- tempfile(fileext = ".csv")
+    # on.exit(unlink(temp_file), add = TRUE)
+
+    # readr::write_csv(plate_df, file = temp_file)
+    # plate_df <- plater::read_plate(temp_file)
+
+    # screenData <- plate_df %>%
+    #   extract(Wells, into = c("row_letter", "colID"), regex = "([A-Z]+)(\\d+)", remove = FALSE) %>%
+    #   mutate(
+    #     rowID = paste0(row_letter, "0"),
+    #     wellID = paste0(row_letter, str_pad(colID, width =3, pad = "0")),
+    #     value = as.numeric(values)
+    #   ) %>%
+    #   select(wellID, rowID, colID, value)
+
+    # return(screenData)
 }
+
 
 # Function used to calculate DSS1, DSS2, and DSS3 scores based on the provided viability and concentration. Is called by summariseScreen. 
 calcDSS <- function(value, conc, dssType = "DSS2", threshold = 10) {

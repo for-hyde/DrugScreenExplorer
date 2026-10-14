@@ -8,7 +8,9 @@ summariseScreen(
   screenData,
   method = c("average", "AUC", "IC50", "DSS"),
   minConc = 0,
-  maxConc = 15
+  maxConc = 15,
+  dssType = "DSS2",
+  dssThreshold = 10
 )
 }
 \arguments{
@@ -17,7 +19,7 @@ summariseScreen(
 
 \item{method}{a character string or a vector of character strings specifying
 the method to summarize the drug effects.
- There are currently three methods available: average, AUC, and IC50.
+ There are currently four methods available: average, AUC, DSS, and IC50.
  The average method calculates the average drug effect across all concentrations.
  The AUC method calculates the normalized area under the dose-response curve
  using the trapezoidal method.
@@ -32,6 +34,10 @@ under curve. Used for method = "IC50". See \code{sumIC50()}.}
 
 \item{maxConc, }{upper bound of concentrations for the integration of area
 under curve. Used for method = "IC50". See \code{sumIC50()}.}
+
+\item{dssType, }{type of DSS score to calculate. Options are "DSS1", "DSS2", and "DSS3". (default is "DSS2")}
+
+\item{dssThreshold, }{threshold for DSS score calculation provided as a percentage. Should be a numeric value between 0 and 100. (default is 10)}
 }
 \value{
 The following columns will be added to the input data frame depending
@@ -57,6 +63,17 @@ maximal effective concentration (EC50), depends on the type of input data}
 
 If the logistic model can not be fitted for a certain drug, the above four
 values will be set to NA.
+
+If \code{method = 'DSS'}
+
+\item{DSS}{the drug sensitivity score calculated based on the viability and concentration values.
+The DSS1 score is a normalized version of the AUC that will only consider the drug effect above a 
+a user-defined threshold. The DSS score is calculated using the \code{calcDSS()} function. The DSS2
+score is further normalized by comparing the DSS1 score to the maximum possible AUC for the given 
+concentration range. The DSS3 score is a modified version of the DSS2 score that takes into 
+account the slope of the dose-response curve.}
+
+
 
 If a column that contains the edge/incubation effect corrected viability
 values is present in the input data frame,

@@ -8,9 +8,10 @@ readScreen(
   rawDir,
   plateAnnotationFile,
   wellAnnotationFile,
-  rowRange,
-  colRange,
   sep,
+  setManualRanges = FALSE,
+  rowRange = NULL,
+  colRange = NULL,
   negWell = c(),
   posWell = c(),
   normalization = FALSE,
@@ -31,6 +32,11 @@ the plate annotation file.}
 \item{wellAnnotationFile}{a character string specifying the location of the
 well annotation file.}
 
+\item{sep}{a character string specifying the delimiters for extracting values
+in the text file.
+A regular expression can be used. The default value is using either tab or
+semicolon as delimiter.}
+
 \item{rowRange}{either an integer vector with length of two or an integer
 value.
 If it's an vector, it should specify the range of the lines that contain
@@ -44,11 +50,6 @@ If it's an vector, it should specify the range of the columns (separated by
 delimiters) that contain the actual values.
 If it's an integer, only the starting column is indicated and the end column
 is the last column in the file.}
-
-\item{sep}{a character string specifying the delimiters for extracting values
-in the text file.
-A regular expression can be used. The default value is using either tab or
-semicolon as delimiter.}
 
 \item{negWell}{a character vector or a character string of well IDs or drug
 names (if the 'name' column is present in well annotation), which specifies
@@ -95,11 +96,11 @@ following columns:
 \item{colID}{column identifier}
 \item{value}{raw signal intensity from a plate reader}
 \item{fileName}{input files names (without extension names) for the plates}
-\item{name}{drug name, if this column is present in the well annotation file}
+\item{drug}{drug name, if this column is present in the well annotation file}
 \item{concentration}{drug concentration, if this column is present in the
 well annotation file}
 \item{wellType}{the type of wells, can be either neg (negative controls),
-pos (positive controls) or sample (drug wells)}
+pos (positive controls), or sample (drug wells)}
 \item{normVal}{normalized viability based on control wells on the plate,
 if the normalization step is performed by setting \code{normalization = TRUE}}
 Depends on the user-specified plate and well annotations, other columns,

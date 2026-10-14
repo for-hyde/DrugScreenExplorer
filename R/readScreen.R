@@ -27,6 +27,10 @@
 #' in the text file.
 #' A regular expression can be used. The default value is using either tab or
 #' semicolon as delimiter.
+#' @param setManualRanges a logical value, whether to manually set the row and
+#' column ranges for extracting the actual values from the raw data files.
+#' The default value is \code{FALSE}. If \code{TRUE}, the user MUST provide the 
+#' row and column ranges using the \code{rowRange} and \code{colRange} arguments.
 #' @param negWell a character vector or a character string of well IDs or drug
 #' names (if the 'name' column is present in well annotation), which specifies
 #' the negative control wells
@@ -66,11 +70,11 @@
 #' \item{colID}{column identifier}
 #' \item{value}{raw signal intensity from a plate reader}
 #' \item{fileName}{input files names (without extension names) for the plates}
-#' \item{name}{drug name, if this column is present in the well annotation file}
+#' \item{drug}{drug name, if this column is present in the well annotation file}
 #' \item{concentration}{drug concentration, if this column is present in the
 #' well annotation file}
 #' \item{wellType}{the type of wells, can be either neg (negative controls),
-#' pos (positive controls) or sample (drug wells)}
+#' pos (positive controls), or sample (drug wells)}
 #' \item{normVal}{normalized viability based on control wells on the plate,
 #' if the normalization step is performed by setting \code{normalization = TRUE}}
 #' Depends on the user-specified plate and well annotations, other columns,
@@ -111,9 +115,10 @@
 readScreen <- function(rawDir,
                        plateAnnotationFile,
                        wellAnnotationFile,
-                       rowRange,
-                       colRange,
                        sep,
+                       setManualRanges = FALSE,
+                       rowRange = NULL,
+                       colRange = NULL,
                        negWell = c(),
                        posWell = c(),
                        normalization = FALSE,
@@ -124,18 +129,26 @@ readScreen <- function(rawDir,
                        bySample = FALSE) {
 
   # argument matching
-  method <- match.arg(method, c("negatives", "NPI"))
-  stopifnot(is.numeric(discardLayer))
+  # If normalization == TRUE, perform checks.
+  if (normalization) {
+    method <- match.arg(method, c("negatives", "NPI"))
+    stopifnot(is.numeric(discardLayer))
+  }
 
   # read sample annotation files
   deciMark <- ifelse(commaAsDecimal, ",", ".")
 
+  # Read plate annotation file
   sampleAnno  <- read_delim(
     plateAnnotationFile,
     delim = "\t",
     locale = locale(decimal_mark = deciMark),
     col_types = cols()
   )
+  # Check all names are present in the plate annotation file
+  if (!all(c("sampleID", "fileName") %in% colnames(sampleAnno))) {
+    stop("The plate annotation file must contain the following columns: sampleID and fileName")
+  }
 
   rawFileList <- sampleAnno$fileName
 
@@ -145,37 +158,54 @@ readScreen <- function(rawDir,
     stop("Duplicated file names found")
   }
 
-  screenData <- lapply(rawFileList, function(eachFile) {
-    plateData <- tryCatch({
-      extract_plate_block(
-        file_path = paste0(rawDir,"/",eachFile)
-      ) %>% dplyr::mutate(fileName = eachFile)
-    }, error = function(e){
-      e$message <- sprintf("Error reading %s: %s", eachFile, e$message)
-      stop(e)
-    })
+  # if rowRange and colRange are not provided, set setManualRanges = TRUE to prompt user to provide them
+  if (!(is.null(rowRange)) || !(is.null(colRange))) {
+    #validate that rowRange and colRange are formatted correctly.
+    #Both must be vector of length 2 with a starting and ending value. 
+    if (length(rowRange) != 2 || length(colRange) != 2) {
+      stop("rowRange and colRange must be vectors of length 2, specifying the starting and ending values.")
+    }
+    setManualRanges <- TRUE
+  }
 
-  }) %>% bind_rows()
+  # If setManualRanges = TRUE, ensure rowRange and colRange are provided 
+  if (setManualRanges) {
+    if (is.null(rowRange) || is.null(colRange)) {
+      stop("rowRange and colRange must be provided when setManualRanges is TRUE")
+    }
+    screenData <- lapply(rawFileList, function(eachFile) {
+      plateData <- tryCatch({
+        dt <- data.table::fread(
+          paste0(rawDir,"/",eachFile),
+          sep = sep,
+          dec = deciMark,
+          skip = rowRange[1] - 1,
+          nrows = rowRange[2] - rowRange[1] + 1,
+          select = colRange[1]:colRange[2],
+        )
+        convert_plate_to_long(dt) %>% 
+          dplyr::mutate(fileName = eachFile)
+      }, error = function(e) {
+        # Just modify the error message without creating a new error
+        e$message <- sprintf("Error reading %s: %s", eachFile, e$message)
+        stop(e)
+      }) 
+    #Automatic working
+    }) %>% bind_rows()
+    } else {#If setManualRanges = False, attempt to automatically detect the data. 
+        screenData <- lapply(rawFileList, function(eachFile) {
+          plateData <- tryCatch({
+            extract_plate_block(
+              file_path = paste0(rawDir,"/",eachFile)
+            ) %>% dplyr::mutate(fileName = eachFile)
+          }, error = function(e){
+            e$message <- sprintf("Error reading %s: %s", eachFile, e$message)
+            stop(e)
+          })
 
-  # Convert to
+        }) %>% bind_rows()
 
-  # # read screening data plate by plate
-  # screenData <- lapply(rawFileList, function(eachFile) {
-  #   plateData <- tryCatch({
-  #     readPlate(plateFile = paste0(rawDir, "/", eachFile),
-  #               rowRange = rowRange,
-  #               colRange = colRange,
-  #               sep = sep,
-  #               commaAsDecimal = commaAsDecimal,
-  #               allowNA = allowNA) %>%
-  #       dplyr::mutate(fileName = eachFile)
-  #   }, error = function(e) {
-  #     # Just modify the error message without creating a new error
-  #     e$message <- sprintf("Error reading %s: %s", eachFile, e$message)
-  #     stop(e)
-  #     })
-  # }) %>% bind_rows()
-
+    }
   # add sample annotations to screenData
   screenData <- left_join(screenData, sampleAnno, by = "fileName")
 
