@@ -137,6 +137,13 @@ readScreen <- function(rawDir,
 
   # read sample annotation files
   deciMark <- ifelse(commaAsDecimal, ",", ".")
+  freadSep <- if (grepl(";", sep)) {
+    ";"
+  } else if (grepl("\\\\t", sep) || grepl("\t", sep)) {
+    "\t"
+  } else {
+    sep
+  }
 
   # Read plate annotation file
   sampleAnno  <- read_delim(
@@ -160,10 +167,10 @@ readScreen <- function(rawDir,
 
   # if rowRange and colRange are not provided, set setManualRanges = TRUE to prompt user to provide them
   if (!(is.null(rowRange)) || !(is.null(colRange))) {
-    #validate that rowRange and colRange are formatted correctly.
-    #Both must be vector of length 2 with a starting and ending value. 
-    if (length(rowRange) != 2 || length(colRange) != 2) {
-      stop("rowRange and colRange must be vectors of length 2, specifying the starting and ending values.")
+    # A scalar column range means read from that column through the end.
+    if (length(rowRange) != 2 || length(colRange) < 1 ||
+        length(colRange) > 2) {
+      stop("rowRange must have length 2 and colRange must have length 1 or 2.")
     }
     setManualRanges <- TRUE
   }
@@ -177,13 +184,47 @@ readScreen <- function(rawDir,
       plateData <- tryCatch({
         dt <- data.table::fread(
           paste0(rawDir,"/",eachFile),
-          sep = sep,
+          sep = freadSep,
           dec = deciMark,
           skip = rowRange[1] - 1,
           nrows = rowRange[2] - rowRange[1] + 1,
-          select = colRange[1]:colRange[2],
+          select = if (length(colRange) == 2) {
+            c(1, colRange[1]:colRange[2])
+          } else {
+            NULL
+          },
         )
-        convert_plate_to_long(dt) %>% 
+        if (length(colRange) == 1) {
+          dt <- dt[, c(1, colRange[1]:ncol(dt)), with = FALSE]
+        }
+        dt <- dt[, !vapply(dt, function(x) {
+          all(is.na(x) | trimws(as.character(x)) == "")
+        }, logical(1)), with = FALSE]
+        names(dt)[1] <- "rowID"
+        names(dt)[-1] <- sprintf("%02d", seq_len(ncol(dt) - 1))
+        dt %>%
+          tidyr::pivot_longer(
+            cols = -rowID,
+            names_to = "colID",
+            values_to = "value"
+          ) %>%
+          dplyr::mutate(
+            rowID = paste0(rowID, "0"),
+            wellID = paste0(sub("0$", "", rowID),
+                            stringr::str_pad(colID, width = 3, pad = "0")),
+            value = as.numeric(value)
+          ) %>%
+          dplyr::select(wellID, rowID, colID, value) %>%
+          {
+            if (anyNA(.$value)) {
+              if (allowNA) {
+                warning("NA values detected in plate")
+              } else {
+                stop("NA values detected in plate. If NA values should be allowed, please set the 'allowNA = TRUE'")
+              }
+            }
+            .
+          } %>%
           dplyr::mutate(fileName = eachFile)
       }, error = function(e) {
         # Just modify the error message without creating a new error
@@ -196,7 +237,8 @@ readScreen <- function(rawDir,
         screenData <- lapply(rawFileList, function(eachFile) {
           plateData <- tryCatch({
             extract_plate_block(
-              file_path = paste0(rawDir,"/",eachFile)
+              file_path = paste0(rawDir,"/",eachFile),
+              allowNA = allowNA
             ) %>% dplyr::mutate(fileName = eachFile)
           }, error = function(e){
             e$message <- sprintf("Error reading %s: %s", eachFile, e$message)
@@ -242,7 +284,7 @@ readScreen <- function(rawDir,
 
   if (sum(ind) == 1 & !"concentration2" %in% colnames(screenData)) {
     warning("The concentration for the second drug is renamed as 'concentration2'.")
-    colnames(screenData) <- "concentration2"
+    colnames(screenData)[ind] <- "concentration2"
   }
 
   #
@@ -327,10 +369,3 @@ readScreen <- function(rawDir,
 
   return(screenData)
 }
-
-
-
-
-
-
-

@@ -468,7 +468,7 @@ plotEdgeEffect <- function(matPlate, plateList, limits) {
 
 #Experimental function for automated parsing of raw datafiles. Takes file path,
 # then extracts the well plate information based on regex parsing.
-extract_plate_block <- function(file_path){
+extract_plate_block <- function(file_path, allowNA = FALSE){
     #Read in lines
     raw_lines <- readLines(file_path, warn = FALSE)
 
@@ -514,13 +514,13 @@ extract_plate_block <- function(file_path){
     # Convert to data frame
     plate_df <- as.data.frame(raw_matrix, stringsAsFactors = FALSE)
 
-    screenData <- convert_plate_to_long(plate_df)
+    screenData <- convert_plate_to_long(plate_df, allowNA = allowNA)
 
     return(screenData)
 }
 
 # Function to convert plate layout to long format with wellID, rowID, colID, and value columns.
-convert_plate_to_long <- function(plate_df) {
+convert_plate_to_long <- function(plate_df, allowNA = FALSE) {
     #Extract column numbers
     idx <- as.character(unlist(plate_df[1, -1]))
     #remove from df
@@ -539,9 +539,18 @@ convert_plate_to_long <- function(plate_df) {
     screenData <- plate_df %>%
       mutate(
         wellID = paste0(rowID, str_pad(colID, width = 3, pad = "0")),
+        rowID = paste0(rowID, "0"),
         value = as.numeric(values)
       ) %>%
       select(wellID, rowID, colID, value)
+
+    if (anyNA(screenData$value)) {
+      if (allowNA) {
+        warning("NA values detected in plate")
+      } else {
+        stop("NA values detected in plate. If NA values should be allowed, please set the 'allowNA = TRUE'")
+      }
+    }
 
     return(screenData)
 
