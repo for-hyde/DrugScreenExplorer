@@ -46,7 +46,8 @@ Imports:
     shiny,
     ggbeeswarm,
     kableExtra,
-    plater
+    plater,
+    magick
 Suggests: 
     bayesynergy,
     knitr,

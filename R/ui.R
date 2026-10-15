@@ -123,8 +123,7 @@ seleDrugUI <- function(id) {
                  textOutput("readScreen_message"),
                  uiOutput("sampleInfo_ui"),
                  uiOutput("normTable_ui"),
-#                 plotOutput("edgeEffectPlot", width = "100%", height = 700), Just get rid of this plot for now. Move to
-                 uiOutput("downloadUI") #Generate report
+                 uiOutput("reportDownload") #Generate report
 
 
                )

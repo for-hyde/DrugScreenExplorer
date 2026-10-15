@@ -72,7 +72,6 @@
       return(out)
     })
 
-    #check wellAnno
     checkWellAnno <- reactive({
 
       req(input$fileInput)
@@ -211,7 +210,6 @@
                                        negWell = c(),
                                        posWell = c(),
                                        allowNA = !isTRUE(input$allowNA),#If allowNA exists, set to TRUE, otherwise FALSE.
-                                       discardLayer = if(is.null(input$discardLayer)) 0 else input$discardLayer,
                                        normalization = FALSE)
         }, error = function(e) {
           warning(
@@ -233,7 +231,6 @@
 
     # Dynamically generate UI for column selection
     output$column_selector_ui <- renderUI({
-
       req(processedScreenData())
       choices <- setdiff(colnames(processedScreenData()),
                          c("wellID", "rowID", "colID", "value",
@@ -266,9 +263,10 @@
 
     # # DT table for showing the sample annotations and filtering
     output$sampleInfo <- DT::renderDataTable({
+      info <- infoTableRaw()
 
-      req(infoTableRaw())
-      infoTable_new <- mutate_if(infoTableRaw(), is.character, as.factor)
+      req(info)
+      infoTable_new <- mutate_if(info, is.character, as.factor)
       ## dplyr::select(-fileName)
       DT::datatable(infoTable_new,
                     filter = "top",
@@ -452,10 +450,9 @@
       )
     })
 
-
-    output$downloadUI <- renderUI({
+    ## 1.2.3 Generate QC report
+    output$reportDownload <- renderUI({
       req(normData())
-
       downloadButton("downloadQC", "Download QC Report")
     })
 
@@ -545,29 +542,39 @@
                   selected = "loess")
     })
 
+    screenData_fitted <- reactiveVal(NULL)
+    correctEdgeEffectError <- reactiveVal(NULL)
+
+    output$correctEdgeEffect_message <- renderText({
+      error <- correctEdgeEffectError()
+
+      if (!is.null(error)) {
+        paste("Error:", error)
+      }
+    })
+
     observeEvent(input$doCorrEdge, {
 
-      span <- ifelse(is.null(input$span), 1, input$span)
+      req(screenData())
+
+      span <- if (is.null(input$span)) 1 else input$span
       showModal(modalDialog("Adjusting and summarizing ...", footer = NULL))
+      on.exit(removeModal(), add = TRUE)
 
+      correctEdgeEffectError(NULL)
 
-      screenData_fitted <-
-        tryCatch({
-          correctEdgeEffect(screenData(),
-                            estimateMethod = input$estimateMethod,
-                            useNeg = input$useNeg,
-                            span = span,
-                            correctMethod = input$correctMethod)},
-          error = function(e) {
-            message <- warningMessage(paste("Error:", e$message))
-            list(message = message)
-          })
-
-      output$correctEdgeEffect_message <- renderText({
-        req(screenData_fitted())
-        if (!is.null(screenData_fitted()$message))
-          screenData_fitted()$message
+      fitted <- tryCatch({
+        correctEdgeEffect(screenData(),
+                          estimateMethod = input$estimateMethod,
+                          useNeg = input$useNeg,
+                          span = span,
+                          correctMethod = input$correctMethod)
+      }, error = function(e) {
+        correctEdgeEffectError(conditionMessage(e))
+        NULL
       })
+
+      req(!is.null(fitted))
 
       # resummarize
       # remove previous values
@@ -575,15 +582,12 @@
       rmCols <- c("meanViab.cor", "AUC.cor", "UpperLimit.cor", "IC50.cor",
                   "Slope.cor", "LowerLimit.cor")
 
-      colID <- unlist(sapply(rmCols, grep, colnames(screenData_fitted)))
-      if (length(colID) > 0) {
-        screenData_fitted <- screenData_fitted[,-colID]
-      }
+      fitted <- fitted[, !names(fitted) %in% rmCols, drop = FALSE]
 
-      screenData_fitted <- summariseScreen(screenData_fitted,
-                                           method = c("average", "AUC", "IC50","DSS"))
-      screenData(screenData_fitted)
-      removeModal()
+      fitted <- summariseScreen(fitted,
+                                 method = c("average", "AUC", "IC50", "DSS"))
+      screenData_fitted(fitted)
+      screenData(fitted)
 
     })
 
@@ -2302,4 +2306,3 @@
   }
   return(serve)
 }
-
