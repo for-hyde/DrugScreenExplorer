@@ -354,19 +354,20 @@
       }
 
       # Normalize data
-      if (input$method == "negatives" && is.null(input$negWell)) {
+      if (input$method == "negatives" && length(negWs) == 0) {
         warningMessage("Need negative drugs for normalization")
         return()
       }
 
-      if (input$method == "NPI" && (is.null(input$negWell) ||
-                                    is.null(input$posWell))) {
+      if (input$method == "NPI" &&
+          (length(negWs) == 0 || length(posWs) == 0)) {
         warningMessage("Need negative and positive drugs for normalization")
         return()
       }
 
-      showModal(modalDialog("Normalizing ...", footer = NULL))
+      showModal(modalDialog("Normalizing ... May take some time.", footer = NULL))
 
+      normalizationSucceeded <- FALSE
       tryCatch({
         screenData0 <- normalizePlate(
           screenData0,
@@ -377,16 +378,19 @@
 
         if (!ifDrug2()) {
           screenData0 <- summariseScreen(screenData0,
-                                         method = c("average", "AUC", "IC50", "DSS"))
+                                         method = c("average", "AUC", "IC50", "DSS"),
+                                         dssType = "all")
         }
 
         screenData(screenData0)
+        normalizationSucceeded <- TRUE
       }, error = function(e) {
         warningMessage(paste("Error:", e$message))
       })
 
       removeModal()
-      screenData(screenData0)
+      if (!normalizationSucceeded)
+        return()
     })
 
     output$warningMessage <- renderText({
@@ -452,8 +456,13 @@
 
     ## 1.2.3 Generate QC report
     output$reportDownload <- renderUI({
+      #Only display option after the data has been normalized
       req(normData())
       downloadButton("downloadQC", "Download QC Report")
+    })
+    output$authorName_ui <- renderUI({
+      req(normData())
+      textInput("authorName", "Your Name (optional)", value = "")
     })
 
     # Make QC report
@@ -462,22 +471,25 @@
         "QC_report.html"
       },
       content = function(file) {
-        tmpdir <- tempfile()
-        dir.create(tmpdir)
+        tmpdir <- tempfile("drug-screen-report-")
+        dir.create(tmpdir, recursive = TRUE)
+        on.exit(unlink(tmpdir, recursive = TRUE, force = TRUE), add = TRUE)
 
         norm_data <- normData()
-        print(colnames(norm_data))
-
-        makeReport(
+        report_file <- makeReport(
           screenData = norm_data,
-          dir = tmpdir
+          dir = tmpdir,
+          author = ifelse(is.null(input$authorName) || input$authorName == "", "Author Name", input$authorName)
         )
 
-        file.copy(
-          from = file.path(tmpdir, "report", "report.html"),
+        copied <- file.copy(
+          from = report_file,
           to = file,
           overwrite = TRUE
         )
+        if (!isTRUE(copied)) {
+          stop("The generated QC report could not be copied to the download path")
+        }
       }
     )
 
@@ -585,7 +597,8 @@
       fitted <- fitted[, !names(fitted) %in% rmCols, drop = FALSE]
 
       fitted <- summariseScreen(fitted,
-                                 method = c("average", "AUC", "IC50", "DSS"))
+                                 method = c("average", "AUC", "IC50", "DSS"),
+                                 dssType = "all")
       screenData_fitted(fitted)
       screenData(fitted)
 
@@ -1134,8 +1147,10 @@
 
     # select the summarisation statistics
     output$sumTypeBox <- renderUI({
-      typeMap <- structure(c("meanViab", "AUC", "IC50", "DSS"),
-                           names = c("average viability", "AUC", "IC50", "DSS"))
+      typeMap <- structure(c("meanViab", "AUC", "IC50", "DSS",
+                             "DSS1", "DSS2", "DSS3"),
+                           names = c("average viability", "AUC", "IC50",
+                                     "DSS", "DSS1", "DSS2", "DSS3"))
       typeAvail <- typeMap[typeMap %in% colnames(filteredData())]
       radioButtons("seleSumType", "Drug effect summarisation method", typeAvail)
     })
@@ -1302,8 +1317,6 @@
       viabMat <- plotMat()$viabMat
       idMap <- plotMat()$idMap
 
-      grid::grid.newpage() #Reset viewport
-
       # why play with the sampleID
       annoCol <- tibble(sampleID_new = colnames(viabMat),
                         sampleID = idMap[match(colnames(viabMat), idMap$new), ]$origin) %>%
@@ -1386,13 +1399,7 @@
           g <- g + scale_color_gradient(low = "blue", high = "red")
         }
       }
-      if(!(input$plotType %in% c("t-SNE","PCA"))){
-        grid::grid.draw(g$gtable)
-        grid::popViewport(0)
-      }
-      else{
-        return(g)
-      }
+      return(g)
     })
 
     output$clusterPlot <- renderPlot({
@@ -1463,8 +1470,10 @@
 
     # show options for the summarisation method for viability
     output$sumTypeBox1 <- renderUI({
-      typeMap <- structure(c("meanViab", "AUC", "IC50","DSS"),
-                           names = c("average viability", "AUC", "IC50","DSS"))
+      typeMap <- structure(c("meanViab", "AUC", "IC50", "DSS",
+                             "DSS1", "DSS2", "DSS3"),
+                           names = c("average viability", "AUC", "IC50",
+                                     "DSS", "DSS1", "DSS2", "DSS3"))
       typeAvail <- typeMap[typeMap %in% colnames(filteredData())]
       radioButtons("seleSumType1",
                    "Drug effect summarisation method",
@@ -2216,7 +2225,9 @@
     # Panel 8, Drug ranking
     output$rankScoreBox <- renderUI({
       req(filteredData())
-      scoreCols <- intersect(c("DSS", "AUC", "IC50", "meanViab"), colnames(filteredData()))
+      scoreCols <- intersect(c("DSS", "DSS1", "DSS2", "DSS3",
+                               "AUC", "IC50", "meanViab"),
+                             colnames(filteredData()))
       if (length(scoreCols) == 0) {
         return(tags$p("No summarization score columns available. Run normalization and summarization first."))
       }

@@ -25,7 +25,10 @@
 #'under curve. Used for method = "IC50". See \code{sumIC50()}.
 #'@param maxConc, upper bound of concentrations for the integration of area
 #'under curve. Used for method = "IC50". See \code{sumIC50()}.
-#' @param dssType, type of DSS score to calculate. Options are "DSS1", "DSS2", and "DSS3". (default is "DSS2")
+#' @param dssType, type or types of DSS score to calculate. Options are
+#' "DSS1", "DSS2", "DSS3", or "all". Multiple types may be supplied. A single
+#' type is returned in the historical \code{DSS} column; multiple types are
+#' returned in columns named after each type. (default is "DSS2")
 #' @param dssThreshold, threshold for DSS score calculation provided as a percentage. Should be a numeric value between 0 and 100. (default is 10)
 #' @export
 #' @import  tidyr
@@ -98,11 +101,17 @@ summariseScreen <- function(screenData,
     stop("method must contain one or more valid method names.")
   }
   
-  #Ensure that the dssType is valid
-  if (dssType %in% c("DSS1", "DSS2", "DSS3")) {
-    dssType <- dssType
+  valid_dss_types <- c("DSS1", "DSS2", "DSS3")
+  if (!is.character(dssType) || length(dssType) == 0 || anyNA(dssType)) {
+    stop("Invalid DSS type. Choose one or more of 'DSS1', 'DSS2', 'DSS3', or 'all'.")
+  }
+  if ("all" %in% dssType) {
+    dss_types <- valid_dss_types
   } else {
-    stop("Invalid DSS type. Please choose from 'DSS1', 'DSS2', or 'DSS3'.")
+    dss_types <- unique(dssType)
+  }
+  if (any(!dss_types %in% valid_dss_types)) {
+    stop("Invalid DSS type. Choose one or more of 'DSS1', 'DSS2', 'DSS3', or 'all'.")
   }
 
   if (length(dssThreshold) != 1 ||
@@ -243,36 +252,45 @@ summariseScreen <- function(screenData,
 
     # Add section for calculating DSS score. FH
   if ("DSS" %in% method) {
-
-    if (ifCor) {
-      sumTab <- grouped_subData %>%
-        dplyr::summarise(DSS = calcDSS(viab, concentration, dssType = dssType,
-                                       threshold = dssThreshold),
-                         DSS.cor = calcDSS(viab.cor, concentration,
-                                           dssType = dssType, threshold = dssThreshold)) %>%
+      dss_columns <- if (length(dss_types) == 1) "DSS" else dss_types
+      dss_tables <- lapply(seq_along(dss_types), function(i) {
+        grouped_subData %>%
+          dplyr::summarise(!!dss_columns[i] :=
+                             calcDSS(viab, concentration,
+                                     dssType = dss_types[i],
+                                     threshold = dssThreshold)) %>%
         ungroup()
-    } else {
-      sumTab <- grouped_subData %>%
-        dplyr::summarise(DSS = calcDSS(viab, concentration, dssType = dssType, threshold = dssThreshold)) %>%
-        ungroup()
-    }
+      })
+      sumTab <- Reduce(function(x, y) left_join(x, y,
+                                                 by = c("sampleID", "drug")),
+                       dss_tables)
 
-    # Remove existing 'DSS' and 'DSS.cor' columns if it already exists in the input data
-    if ("DSS" %in% colnames(screenData)){
-      screenData[["DSS"]] <- NULL
-    }
+      if (ifCor) {
+        dss_cor_tables <- lapply(seq_along(dss_types), function(i) {
+          grouped_subData %>%
+            dplyr::summarise(!!paste0(dss_columns[i], ".cor") :=
+                               calcDSS(viab.cor, concentration,
+                                       dssType = dss_types[i],
+                                       threshold = dssThreshold)) %>%
+            ungroup()
+        })
+        sumTab.cor <- Reduce(function(x, y) left_join(x, y,
+                                                       by = c("sampleID", "drug")),
+                             dss_cor_tables)
+        sumTab <- left_join(sumTab, sumTab.cor, by = c("sampleID", "drug"))
+      }
 
-    if ("DSS.cor" %in% colnames(screenData)){
-      screenData[["DSS.cor"]] <- NULL
-    }
+      for (colN in c(dss_columns, paste0(dss_columns, ".cor"))) {
+        if (colN %in% colnames(screenData))
+          screenData[[colN]] <- NULL
+      }
 
-    screenData <- left_join(screenData, sumTab, by = c("sampleID", "drug"))
-  }
+      screenData <- left_join(screenData, sumTab, by = c("sampleID", "drug"))
+    }
 
 
   return(screenData)
 }
-
 
 
 

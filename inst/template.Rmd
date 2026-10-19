@@ -153,27 +153,27 @@ plotTab <- arrange(edgePlot, value) %>% mutate(fileName = factor(fileName, level
   mutate(layer = factor(mapCol[layer])) %>% group_by(fileName, layer) %>% 
   summarise(meanFac = mean(edgeRatio), sdFac = sd(edgeRatio)) 
 
+allNames <- unique(plotTab$fileName)
+
 
 ```
 
 ```{r plot edge intensity, echo = params$showCode}
-#create plot
+# create plot
 p <- ggplot(plotTab, aes(x=fileName, y = meanFac, fill = layer)) +
- geom_bar(position = position_dodge(), stat = "identity") + coord_flip() + theme_bw() +
- xlab("file names (ranked by mean of raw counts)") + ylab("edge effect ratio") + scale_fill_brewer(palette = 1)
-
-allNames <- unique(plotTab$fileName)
+geom_bar(position = position_dodge(), stat = "identity") + coord_flip() + theme_bw() +
+xlab("file names (ranked by mean of raw counts)") + ylab("edge effect ratio") + scale_fill_brewer(palette = 1)
 if (length(allNames) > 10) {
-  plotTab_top20 <- filter(plotTab, fileName %in% allNames[seq(10)])
-  p_top20 <- ggplot(plotTab_top20, aes(x=fileName, y = meanFac, fill = layer)) + 
-    geom_bar(position = position_dodge(), stat = "identity") + coord_flip() + theme_bw() + 
-    xlab("file names (ranked by mean of raw counts)") + ylab("edge effect ratio") + scale_fill_brewer(palette = 1)
-  plot(p_top20)
-  pdf("plots/edgeEffectIntensity.pdf", width = 10, height = length(allNames)*0.6)
-  plot(p)
-  dev.off()
+ plotTab_top20 <- filter(plotTab, fileName %in% allNames[seq(10)])
+ p_top20 <- ggplot(plotTab_top20, aes(x=fileName, y = meanFac, fill = layer)) +
+   geom_bar(position = position_dodge(), stat = "identity") + coord_flip() + theme_bw() +
+   xlab("file names (ranked by mean of raw counts)") + ylab("edge effect ratio") + scale_fill_brewer(palette = 1)
+ plot(p_top20)
+ pdf("plots/edgeEffectIntensity.pdf", width = 10, height = length(allNames)*0.6)
+ plot(p)
+ dev.off()
 } else {
-  plot(p)
+ plot(p)
 }
 ```
 `r if(length(allNames) > 10) {"Only the first 20 plates are shown in html report. The plot for all plates can be found [here](./plots/edgeEffectIntensity.pdf)."}`
@@ -233,5 +233,3 @@ p <- p + theme_bw() + ggtitle("Multidimensional Scaling (MDS) on plates") +  geo
   theme(plot.title = element_text(hjust = 0.5, face = "bold"))
 plot(p)
 ```
-
-

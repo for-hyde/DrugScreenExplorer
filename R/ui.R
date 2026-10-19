@@ -1,4 +1,4 @@
-
+# UI module for selecting drugs.
 seleDrugUI <- function(id) {
   ns <- NS(id)
   tagList(tags$h4("Select drugs", style = "color: #2166AC"),
@@ -123,6 +123,7 @@ seleDrugUI <- function(id) {
                  textOutput("readScreen_message"),
                  uiOutput("sampleInfo_ui"),
                  uiOutput("normTable_ui"),
+                 uiOutput("authorName_ui"),
                  uiOutput("reportDownload") #Generate report
 
 

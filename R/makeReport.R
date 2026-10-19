@@ -37,26 +37,84 @@ makeReport <- function(screenData,
                        author = "Author Name",
                        ifPlatePlot = FALSE) {
 
-  # create a directoy for report
-  dir.create(file.path(dir, "report"), showWarnings = FALSE)
-  dir.create(file.path(dir, "report/plots"), showWarnings = FALSE)
+  if (!is.character(dir) || length(dir) != 1 || is.na(dir) ||
+      !dir.exists(dir)) {
+    stop("dir must be an existing directory")
+  }
+
+  report_dir <- normalizePath(file.path(dir, "report"),
+                              winslash = "/", mustWork = FALSE)
+  dir.create(file.path(report_dir, "plots"), recursive = TRUE,
+             showWarnings = FALSE)
 
   # save the screenData object to a file
-  saveRDS(screenData, file = file.path(dir, "report/screenData.rds"),
+  saveRDS(screenData, file = file.path(report_dir, "screenData.rds"),
           compress = TRUE)
+
+  # Make Pandoc available when RStudio's bundled binary is not on PATH.
+  pandoc_dir <- Sys.getenv("RSTUDIO_PANDOC", unset = "")
+  if (!nzchar(pandoc_dir) || !file.exists(file.path(pandoc_dir, "pandoc"))) {
+    pandoc_path <- Sys.which("pandoc")
+    if (nzchar(pandoc_path)) {
+      pandoc_dir <- dirname(pandoc_path)
+    } else {
+      machine_dir <- if (identical(Sys.info()[["machine"]], "arm64")) {
+        "aarch64"
+      } else {
+        "x86_64"
+      }
+      rstudio_pandoc <- file.path(
+        "/Applications/RStudio.app/Contents/Resources/app/quarto/bin/tools",
+        machine_dir
+      )
+      if (file.exists(file.path(rstudio_pandoc, "pandoc"))) {
+        pandoc_dir <- rstudio_pandoc
+      }
+    }
+  }
+
+  if (nzchar(pandoc_dir) && file.exists(file.path(pandoc_dir, "pandoc"))) {
+    old_rstudio_pandoc <- Sys.getenv("RSTUDIO_PANDOC", unset = NA_character_)
+    Sys.setenv(RSTUDIO_PANDOC = pandoc_dir)
+    if (is.na(old_rstudio_pandoc)) {
+      on.exit(Sys.unsetenv("RSTUDIO_PANDOC"), add = TRUE)
+    } else {
+      on.exit(Sys.setenv(RSTUDIO_PANDOC = old_rstudio_pandoc), add = TRUE)
+    }
+    rmarkdown::find_pandoc(dir = pandoc_dir, cache = FALSE)
+  }
+
+  if (!rmarkdown::pandoc_available()) {
+    stop(
+      "Pandoc was not found. Install Pandoc or set RSTUDIO_PANDOC to its directory."
+    )
+  }
 
   # template file
   tempRmd <- system.file("template.Rmd", package = "DrugScreenExplorer")
-  file.copy(tempRmd, file.path(dir, "report/report.Rmd"),
-            overwrite = TRUE)
+  if (!nzchar(tempRmd) || !file.exists(tempRmd)) {
+    stop("The package report template could not be found")
+  }
+  report_rmd <- file.path(report_dir, "report.Rmd")
+  file.copy(tempRmd, report_rmd, overwrite = TRUE)
 
   # render html with parameters
   rmarkdown::render(
-    input = file.path(dir, "report/report.Rmd"), output_file = "report.html",
+    input = report_rmd,
+    output_file = "report.html",
+    output_dir = report_dir,
+    knit_root_dir = report_dir,
     params = list(showCode = showCode,
                   set_title = title,
                   set_author = author,
-                  ifPlatePlot = ifPlatePlot), quiet = TRUE)
+                  ifPlatePlot = ifPlatePlot),
+    quiet = TRUE
+  )
+
+  report_file <- file.path(report_dir, "report.html")
+  if (!file.exists(report_file)) {
+    stop("Report rendering completed without creating report.html")
+  }
+
+  invisible(report_file)
 }
-
-
