@@ -1,6 +1,6 @@
 #' Estimate and correct edge effect for each screen plate
 #'
-#' This function subtract the incubation (or edge) effect from the observed
+#' This function subtracts the incubation (or edge) effect from the observed
 #' signal intensity to recover the true signal intensity. If the incubation
 #' effect has already been estimated by \code{fitEdgeEffect()} function,
 #' the values in the edgeFactor column will be used. Otherwise, this function

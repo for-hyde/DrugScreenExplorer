@@ -1,65 +1,6 @@
 # Some helper functions
 ## Function to read screen data from one plate
 
-# Function has been replaced by extract_plate_block function below. Holding onto for testing purposes now.
-# readPlate <- function(plateFile,
-#                       rowRange = c(3, 18),
-#                       colRange = 2,
-#                       sep = "[;\t]",
-#                       commaAsDecimal = FALSE,
-#                       allowNA = FALSE) {
-#
-#   if (grepl(",", sep) & commaAsDecimal)
-#     stop("Comma can not be used as a separator and the demical at the same time.")
-#   # Replace this block of code with function extract_plate_block 13-42
-#   txt <- readLines(plateFile)
-#
-#   if (length(rowRange) == 1) {
-#     rowRange <- c(rowRange, length(txt))
-#   }
-#
-#   sp <- lapply(seq(rowRange[1], rowRange[2]), function(x) {
-#
-#     if (commaAsDecimal) {
-#       txtSp <- gsub("[,]", ".", txt[x])
-#     } else {
-#       txtSp <- txt[x]  #only ',' or '.' as decimal
-#     }
-#
-#     txtSp <- strsplit(txtSp, split = sep)[[1]]
-#     #txtSp <- txtSp[txtSp != ""]
-#     if (length(colRange) == 1)
-#       colRange <- c(colRange, length(txtSp))
-#     txtSp <- txtSp[seq(colRange[1], colRange[2])]
-#   })
-#
-#   # check whether all the rows have the same length.
-#   rowNum <- length(sp)
-#   colNum <- unique(vapply(sp, length, numeric(1)))
-#
-#   if (length(colNum) != 1) {
-#     stop("Numbers of the values in rows are different.")
-#   }
-#
-#   rowID <- genRowIDs(rowNum)
-#   colID <- genColIDs(colNum)
-#   rowID <- rep(rowID, each = colNum)
-#   colID <- rep(colID, times = rowNum)
-#
-#   df <- tibble::tibble(wellID = paste0(rowID, colID), rowID = rowID,
-#                        colID = colID, value = as.numeric(unlist(sp)))
-#
-#   if (any(is.na(df$value))) {
-#     if (allowNA) {
-#       warning("NA values detected in plate")
-#     } else {
-#       stop("NA values detected in plate.
-#            If NA values should be allowed, please set the 'allowNA = TRUE'")
-#     }
-#   }
-#
-#   return(df)
-# }
 
 ## Function to make pdf for a list of ggplot objects
 makepdf <- function(x, name, ncol = 3, nrow = 2, width = 20, height = 12) {
@@ -573,8 +514,8 @@ convert_plate_to_long <- function(plate_df, allowNA = FALSE) {
 }
 
 
-# Function used to calculate DSS1, DSS2, and DSS3 scores based on the provided viability and concentration. Is called by summariseScreen. 
-calcDSS <- function(value, conc, dssType = "DSS2", threshold = 10) {
+# Calculate one DSS variant. This is used by the public calcDSS wrapper below.
+calcDSS_single <- function(value, conc, dssType = "DSS2", threshold = 10) {
   
   # 1. Clean, aggregate replicates, and sort 
   valueConc <- data.frame(viab = value, conc = conc) %>%
@@ -647,5 +588,38 @@ calcDSS <- function(value, conc, dssType = "DSS2", threshold = 10) {
     }
 
     return(NaN) # If dssType is not recognized, return NaN
+  }
+}
+
+# Calculate one or more DSS variants. A single variant retains the historical
+# scalar return value; multiple variants are returned as a named numeric vector.
+calcDSS <- function(value, conc, dssType = "DSS2", threshold = 10) {
+  valid_types <- c("DSS1", "DSS2", "DSS3")
+
+  if (!is.character(dssType) || length(dssType) == 0 || anyNA(dssType)) {
+    stop("dssType must be one or more of 'DSS1', 'DSS2', 'DSS3', or 'all'.")
+  }
+
+  if ("all" %in% dssType) {
+    dss_types <- valid_types
+  } else {
+    dss_types <- unique(dssType)
+  }
+
+  if (any(!dss_types %in% valid_types)) {
+    stop("dssType must be one or more of 'DSS1', 'DSS2', 'DSS3', or 'all'.")
+  }
+
+  scores <- vapply(
+    dss_types,
+    function(type) calcDSS_single(value, conc, dssType = type,
+                                   threshold = threshold),
+    numeric(1)
+  )
+
+  if (length(scores) == 1) {
+    unname(scores)
+  } else {
+    scores
   }
 }

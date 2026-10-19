@@ -61,7 +61,10 @@ normalizePlate <- function(screenData,
 
   #- argument checking
   method <- match.arg(method, c("negatives", "NPI"))
-  stopifnot(is.numeric(discardLayer))
+  if (length(discardLayer) != 1 || !is.numeric(discardLayer) ||
+      !is.finite(discardLayer) || discardLayer %% 1 != 0) {
+    stop("discardLayer must be one non-negative integer")
+  }
 
   if (!is.logical(bySample)) {
     stop("bySample must be a logical value, either TRUE or FALSE")
@@ -71,7 +74,7 @@ normalizePlate <- function(screenData,
     stop("screenData must contain the following columns: sampleID, fileName,
          wellType, and value")
   }
-  if (!is.numeric(discardLayer) || discardLayer < 0) {
+  if (discardLayer < 0) {
     stop("discardLayer must be a non-negative integer")
   }
 
@@ -112,14 +115,21 @@ normalizePlate <- function(screenData,
 
     if (method == "negatives") {
       if (is.na(negMed)) {
-        stop("No negative control wells found on the speficied region of the plate")
+        stop(
+          "No negative control wells remain for plate '", unique(onePlate$fileName),
+          "' after discarding ", discardLayer,
+          " layer(s). Check the selected negative controls or reduce discardLayer."
+        )
       } else {
         onePlate <- dplyr::mutate(onePlate, normVal = value / negMed)
       }
     } else if (method == "NPI") {
       if (is.na(negMed) | is.na(posMed)) {
-        stop("No negative and positive control wells found on the specified
-             region of the plate")
+        stop(
+          "No negative and positive control wells remain for plate '",
+          unique(onePlate$fileName), "' after discarding ", discardLayer,
+          " layer(s). Check both control selections or reduce discardLayer."
+        )
       } else {
         onePlate <- dplyr::mutate(onePlate,
                                   normVal = (value - posMed)/(negMed - posMed))
@@ -142,7 +152,6 @@ normalizePlate <- function(screenData,
   }
   return(screenData)
 }
-
 
 
 
