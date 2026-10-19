@@ -4,7 +4,8 @@ Title: A pipeline for processing drug sensitivity screen data
 Version: 0.99.0
 Date: 2025-04-01
 Authors@R: c(
-    person("Shuo", "Wang", email = "wangsures@foxmail.com", role = c("aut", "cre"), comment = c(ORCID = "0009-0000-0424-2160")),
+    person("Forrest", "Hyde", "forrest.hyde@stud.uni-heidelberg.de", role = c("aut", "cre"), comment = c(ORCID = ""))
+    person("Shuo", "Wang", email = "wangsures@foxmail.com", role = c("aut"),
     person("Junyan", "Lu", email = "junyan.lu@uni-heidelberg.de", role = "aut")
   )
 Description: DrugScreenExplorer is a comprehensive R package designed for streamlined processing, quality control, and interactive visualization of high-throughput 
