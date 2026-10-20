@@ -496,62 +496,45 @@
     #-----------------------------------------------------------------------------
     # 1.3 adjust incubation effect
     # Placement should be adjusted?? -FH
-    output$edgeEffectPlot <- renderPlot({
-    req(screenData())
-
-    fitsD <- tryCatch({
-      fitEdgeEffect(screenData(),
-                    estimateMethod = input$estimateMethod,
-                    useNeg = input$useNeg,
-                    span = ifelse(is.null(input$span), 1, input$span),
-                    correctMethod = input$correctMethod)
-    }, error = function(e) {
-      message <- warningMessage(paste("Error:", e$message))
-      list(message = message)
-    })
-
-    plate_plots <- plotPlate(
-      screenData(),
-      plotPlate = unique(screenData()$fileName),
-      plotType = "edgeEffect",
-      ifCorrected = FALSE
-    )
-
-    if (length(plate_plots) == 1) {
-      plate_plots[[1]]
-    } else {
-      gridExtra::grid.arrange(grobs = plate_plots, ncol = 2)
-    }
-  })
-
-
-    output$estimateMethod <- renderUI({
-      # if (input$normalization) {
-      req(screenData())
-      selectInput("estimateMethod",
-                  "Method to estimate the shape and strength of edge effect.",
-                  choices = c('loess', 'sigmoid'),
-                  selected = "loess")
-    })
-
-    output$useNeg <- renderUI({
-      req(screenData())
-      checkboxInput("useNeg",
-                    "All or Negative wells used to estimate edge effect",
-                    value = TRUE)
-    })
-
+    # Span controls
     output$span <- renderUI({
       req(screenData())
-      if (input$estimateMethod == "loess")
-        numericInput("span", "Span parameter for loess", value = 1)
+      if (input$estimateMethod == "loess"){
+        tagList(
+          numericInput("span", "Span parameter for loess", value = 1, min = 0.1, step = 0.1),
+          bsTooltip("span", "Controls the degree of smoothing of loess")
+        )
+      }
     })
 
-    output$correctMethod <- renderUI({
+
+    output$useNegControls <- renderUI({
+      #Must have screen Data to load drug names
       req(screenData())
-      selectInput("correctMethod", "Methods to adjust edge effects",
-                  choices = c('bliss', 'linear'),
-                  selected = "loess")
+
+      #Extract relevant parameters for population
+      conc_df <- screenData()
+      max_conc <- max(conc_df$concentration, na.rm = TRUE)
+      if (ifDrug2()) {
+        # All drug names
+        drug_names <- unique(c(conc_df$drug, conc_df$drug2))
+      } else {
+        drug_names <- unique(conc_df$drug)
+      }
+
+      if (!isTRUE(input$useNeg)) {
+        tagList(
+          numericInput("useLowConcentrations",
+                       "Threshold for lowest concetrations to include in estimation",
+                       value = 0,
+                       min = 0,
+                       max = max_conc),
+          selectInput("exclude", 
+                      "Drugs to exclude from edge effect estimation",
+                      choices = drug_names,
+                      multiple = TRUE)
+        )
+      }
     })
 
     screenData_fitted <- reactiveVal(NULL)
@@ -570,6 +553,9 @@
       req(screenData())
 
       span <- if (is.null(input$span)) 1 else input$span
+      conc_threshold <- if (is.null(input$useLowConcentrations)) 0 else input$useLowConcentrations
+      exclude <- if (is.null(input$exclude)) c() else input$exclude
+
       showModal(modalDialog("Adjusting and summarizing ...", footer = NULL))
       on.exit(removeModal(), add = TRUE)
 
@@ -580,7 +566,9 @@
                           estimateMethod = input$estimateMethod,
                           useNeg = input$useNeg,
                           span = span,
-                          correctMethod = input$correctMethod)
+                          correctMethod = input$correctMethod,
+                          exclude = exclude,
+                          useLowConcentrations = conc_threshold)
       }, error = function(e) {
         correctEdgeEffectError(conditionMessage(e))
         NULL
@@ -756,7 +744,7 @@
 
     plotTab <- reactive({
 
-      req(input$selePlate)
+      req(input$selePlate) #requires plate to be selected
       ## Function to generate an ordered row IDs based on the number of rows
       genRowIDs <- function(x) {
         c(paste0(LETTERS, 0),
@@ -797,6 +785,40 @@
       }
       matPlate
     })
+
+    # Plot the edge effect plot for the selected plate
+    edgeEffectMatrix <- reactive ({
+      #A plate must be selected by the user
+      req(input$selePlate)
+
+      #Adjust dataframe to select only values for said plate
+      df <- filteredData() %>%
+        filter(fileName == input$selePlate)
+      
+      span <- if (is.null(input$span)) 1 else input$span
+      low_conc <- if (is.null(input$useLowConcentrations)) 0L else input$useLowConcentrations
+      excluded <- if (is.null(input$exclude)) c() else input$exclude
+
+      df <- fitEdgeEffect(df,
+        method = input$estimateMethod,
+        useNeg = input$useNeg,
+        span = span,
+        useLowConcentrations = low_conc,
+        exclude = excluded
+      )
+      
+      df
+    })
+
+    output$edgeEffectPlot <- renderPlotly({
+      req(edgeEffectMatrix())
+
+      df <- edgeEffectMatrix()
+      p <- plotPlate(df, plotType = "edgeEffect")
+
+      ggplotly(p[[1]])
+    })
+
 
     # plot the heatmap
     output$plateHeatmap <- renderPlotly({

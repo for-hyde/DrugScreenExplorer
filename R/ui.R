@@ -87,24 +87,6 @@ seleDrugUI <- function(id) {
                    verbatimTextOutput("warningMessage") %>%
                      tagAppendAttributes(style = "color: red; margin-top: 10px;"),
                    uiOutput("column_selector_normTable_ui")
-                 ),
-
-                 tags$div(
-
-                   style = "border: 1px solid #ddd; padding: 10px; margin-bottom: 10px;",
-                   h3(tags$b("3 Edge Effects Adjustment"), style = "background-color: lightgray; padding: 10px;"),
-
-                   uiOutput("estimateMethod"),
-                   bsTooltip("estimateMethod", "'loess', uses local regression to estimate edge effect; 'sigmoid', use 2D-sigmoid model to estimate edge effect"),
-                   uiOutput("useNeg"),
-                   bsTooltip("useNeg", "If TRUE, only negative controls are used to estimate edge effect. Otherwise, all the wells are used for edge effect estimation"),
-                   uiOutput("span"),
-                   bsTooltip("span", "Controls the degree of smoothing of loess"),
-                   uiOutput("correctMethod"),
-                   textOutput("correctEdgeEffect_message") %>%
-                     tagAppendAttributes(style = "color: red; margin-top: 10px;"),
-                   bsTooltip("correctMethod", "Currently two methods 'bliss' and 'linear' are supported. If bliss is selected, the corrected values are simply the normalized signal intensity values divided by the estimated incubation/edge effect intensity. If linear is selected, the correction process will be smoothed by a linear function depends on the original normalized signal intensity. This option is suitable for the situation when the edge effect is very strong and results in instability in the correction process."),
-                   actionButton("doCorrEdge", "Correct", align = "center")
                  ), width = 4),
 
                # main paneal
@@ -123,7 +105,7 @@ seleDrugUI <- function(id) {
                  textOutput("readScreen_message"),
                  uiOutput("sampleInfo_ui"),
                  uiOutput("normTable_ui"),
-                 uiOutput("authorName_ui"),
+                 uiOutput("authorName"),
                  uiOutput("reportDownload") #Generate report
 
 
@@ -136,6 +118,39 @@ seleDrugUI <- function(id) {
              titlePanel("Heatmap plot of drug screen plates"),
              sidebarLayout(
                sidebarPanel(
+                #Experimenting with Adding to plate plot tab: Allow for edge effect visualizaiton and comparison.
+                 tags$div(
+
+                   style = "border: 1px solid #ddd; padding: 10px; margin-bottom: 10px;",
+                   h3(tags$b("Edge Effects Adjustment"), style = "background-color: lightgray; padding: 10px;"),
+                   #Tags that do not rely on unique dataframe can be placed and referenced in app.
+                   #Estimate method
+                   selectInput("estimateMethod",
+                               "Method to estimate the shape and strength of edge effect.",
+                               choices = c("loess", "sigmoid"),
+                               selected = "loess"),
+                   bsTooltip("estimateMethod", "'loess', uses local regression to estimate edge effect; 'sigmoid', use 2D-sigmoid model to estimate edge effect"),
+                   #Loess span parameter
+                   uiOutput("span"), #only appears when loess is selected
+                   #Use negative controls only 
+                   checkboxInput("useNeg", 
+                                 "Use only negative controls for edge effect estimation", 
+                                 value = TRUE),
+                   bsTooltip("useNeg", "If TRUE, only negative controls are used to estimate edge effect. Otherwise, all the wells are used for edge effect estimation"),
+                   uiOutput("useNegControls"),
+                   #Correction method
+                   selectInput("correctMethod",
+                               "Select edge effect correction method",
+                               choices = c("bliss", "linear"),
+                               selected = "bliss"),
+                   textOutput("correctEdgeEffect_message") %>%
+                     tagAppendAttributes(style = "color: red; margin-top: 10px;"),
+                   bsTooltip("correctMethod", "Currently two methods 'bliss' and 'linear' are supported. If bliss is selected, the corrected values are simply the normalized signal intensity values divided by the estimated incubation/edge effect intensity. If linear is selected, the correction process will be smoothed by a linear function depends on the original normalized signal intensity. This option is suitable for the situation when the edge effect is very strong and results in instability in the correction process."),
+                   #Apply correction on all Plates
+                   actionButton("doCorrEdge", "Correct", align = "center")
+                   #Apply correction on selected plate
+                   
+                 ), 
 
                  tags$div(
                    style = "border: 1px solid #ddd; padding: 10px; margin-bottom: 10px;",
@@ -161,6 +176,9 @@ seleDrugUI <- function(id) {
                mainPanel(tags$style(type="text/css",
                                     ".shiny-output-error { visibility: hidden; }",
                                     ".shiny-output-error:before { visibility: hidden; }"),
+                         #Edge Effect estimation visualization
+                         plotlyOutput("edgeEffectPlot", width = 800, height = 400),
+                         #Plate heatmap visualization
                          plotlyOutput("plateHeatmap", width = 800, height = 400),
                          column(DTOutput("infoTab"), width = 4),
                          column(plotlyOutput("detailPlot", width = 400, height = 300),
