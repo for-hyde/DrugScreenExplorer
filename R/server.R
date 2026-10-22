@@ -1492,10 +1492,10 @@
 
     # show options for the summarisation method for viability
     output$sumTypeBox1 <- renderUI({
-      typeMap <- structure(c("meanViab", "AUC", "IC50", "DSS",
+      typeMap <- structure(c("meanViab", "AUC", "IC50",
                              "DSS1", "DSS2", "DSS3"),
                            names = c("average viability", "AUC", "IC50",
-                                     "DSS", "DSS1", "DSS2", "DSS3"))
+                                     "DSS1", "DSS2", "DSS3"))
       typeAvail <- typeMap[typeMap %in% colnames(filteredData())]
       radioButtons("seleSumType1",
                    "Drug effect summarisation method",
@@ -1564,21 +1564,24 @@
           plotTab <- filter(filteredData(), wellType == "sample")
         }
 
-        if (!is.null(input$ifCorrected3)) {
-          if(input$ifCorrected3)
-            plotTab <- mutate(plotTab, viab = plotTab[[paste0(input$seleSumType1, ".cor")]])
-          else
-            plotTab <- mutate(plotTab, viab = plotTab[[input$seleSumType1]])
-        } else {
-          plotTab <- mutate(plotTab, viab = plotTab[[input$seleSumType1]])
+        selected_summary <- input$seleSumType1
+        if (isTRUE(input$ifCorrected3)) {
+          selected_summary <- paste0(selected_summary, ".cor")
         }
+        if (!selected_summary %in% names(plotTab)) {
+          errorMsg(paste0("The selected summary column '", selected_summary,
+                          "' is not available. Recalculate the summary after ",
+                          "applying edge-effect correction."))
+          return(plotTab[0, , drop = FALSE])
+        }
+        plotTab <- mutate(plotTab, viab = .data[[selected_summary]])
 
         colType <- colClass()[input$seleFactor]
         plotTab <- group_by(plotTab, drug, sampleID) %>%
           summarise(viab = mean(viab, na.rm = TRUE), .groups = "drop") %>%
           ungroup() %>%
           mutate(status = filteredData()[match(sampleID, filteredData()$sampleID), ][[input$seleFactor]]) %>%
-          filter(!is.na(status), !is.na(viab))
+          filter(!is.na(status), is.finite(viab))
 
         if (nrow(plotTab) == 0) {
           return(plotTab)
@@ -1605,26 +1608,32 @@
           testTabInput <- testInput()
 
           if (nrow(testTabInput) == 0) {
-            errorMsg("No valid data remained after filtering for the selected summary and grouping.")
-            return(tibble())
-          }
-
-          if (length(unique(na.omit(testTabInput$status))) < 2) {
-            errorMsg("The selected grouping variable must have at least two non-missing groups for testing.")
+            if (is.null(errorMsg())) {
+              errorMsg("No valid data remained after filtering for the selected summary and grouping.")
+            }
             return(tibble())
           }
 
           if (colType == "binary") {
-            if (min(table(na.omit(testTabInput$status))) < 2) {
-              errorMsg("Each group needs at least two observations for a t-test.")
+            eligible_drugs <- testTabInput %>%
+              count(drug, status, name = "n") %>%
+              group_by(drug) %>%
+              summarise(n_groups = n(), min_n = min(n), .groups = "drop") %>%
+              filter(n_groups == 2, min_n >= 2) %>%
+              pull(drug)
+
+            if (length(eligible_drugs) == 0) {
+              errorMsg("No drug has at least two observations in each of two groups for a t-test.")
               return(tibble())
             }
+            testTabInput <- filter(testTabInput, drug %in% eligible_drugs)
 
             testParam <- input$seleParam == "Equal variance"
             testTab <- testTabInput %>%
               group_by(drug) %>%
               nest()
-            res <- mutate(testTab, model = map(data, ~ t.test(viab ~ status, ., var.equal = TRUE))) %>%
+            res <- mutate(testTab, model = map(data, ~ t.test(viab ~ status, .,
+                                                   var.equal = testParam))) %>%
               mutate(out = map(model, broom::tidy)) %>%
               unnest(out) %>%
               ungroup() %>%
@@ -1634,11 +1643,25 @@
 
           } else if (colType == "continuous") {
             testParam <- ifelse(input$seleParam != "Nonparametric (Spearman)", "pearson", "spearman")
+            eligible_drugs <- testTabInput %>%
+              group_by(drug) %>%
+              summarise(n = n(),
+                        n_status = n_distinct(status),
+                        .groups = "drop") %>%
+              filter(n >= 3, n_status >= 2) %>%
+              pull(drug)
+
+            if (length(eligible_drugs) == 0) {
+              errorMsg("No drug has enough finite observations in at least two groups for correlation testing.")
+              return(tibble())
+            }
+            testTabInput <- filter(testTabInput, drug %in% eligible_drugs)
             testTab <- testTabInput %>%
               group_by(drug) %>%
               nest()
             res <- mutate(testTab,
-                          model = map(data, ~ cor.test( ~ viab + status, ., method = testParam))) %>%
+                          model = map(data, ~ cor.test(viab, status, data = .,
+                                                       method = testParam))) %>%
               mutate(out = map(model, broom::tidy)) %>%
               unnest(out) %>%
               ungroup() %>%
@@ -1647,6 +1670,20 @@
               arrange(p.value)
 
           } else if (colType == "categorical") {
+            eligible_drugs <- testTabInput %>%
+              count(drug, status, name = "n") %>%
+              group_by(drug) %>%
+              summarise(n_groups = n(),
+                        n_total = sum(n),
+                        .groups = "drop") %>%
+              filter(n_groups >= 2, n_total > n_groups) %>%
+              pull(drug)
+
+            if (length(eligible_drugs) == 0) {
+              errorMsg("No drug has enough finite observations across groups for ANOVA.")
+              return(tibble())
+            }
+            testTabInput <- filter(testTabInput, drug %in% eligible_drugs)
             testTab <- testTabInput %>%
               group_by(drug) %>%
               nest()

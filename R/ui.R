@@ -246,7 +246,7 @@ seleDrugUI <- function(id) {
                ),
                mainPanel(
                  textOutput("tsne_message"),
-                 plotOutput("clusterPlot", width = 800, height = 800)
+                 plotlyOutput("clusterPlot", width = 800, height = 800)
                ))),
 
     # Panel 5
