@@ -8,7 +8,7 @@ testSumData_AUC_corr <-
   suppressWarnings(summariseScreen(screenSub_edgeCorr, method = "AUC"))
 testSumData_IC50 <-
   suppressWarnings(summariseScreen(screenSub_edgeCorr, method = "IC50"))
-sumData_DSS <-
+testSumData_DSS <-
   suppressWarnings(summariseScreen(screenSub, method = "DSS"))
 
 testFitRes1 <-
@@ -30,6 +30,10 @@ test_that("Summarise screen use trepazoidal AUC value on edge corrected viabilit
 
 test_that("Summarise screen use IC50 fitting", {
   expect_equal(testSumData_IC50, sumData_IC50)
+})
+
+test_that("Summarize screen use DSS fitting", {
+  expect_equal(testSumData_DSS, sumData_DSS)
 })
 
 test_that("Test 1 for sumIC50 function", {
