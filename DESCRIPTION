@@ -4,8 +4,8 @@ Title: A pipeline for processing drug sensitivity screen data
 Version: 0.99.0
 Date: 2025-04-01
 Authors@R: c(
-    person("Forrest", "Hyde", "forrest.hyde@stud.uni-heidelberg.de", role = c("aut", "cre"), comment = c(ORCID = ""))
-    person("Shuo", "Wang", email = "wangsures@foxmail.com", role = c("aut"),
+    person("Forrest", "Hyde", email = "forrest.hyde@stud.uni-heidelberg.de", role = c("aut", "cre"), comment=c(ORCID="0009-0006-3288-4965")),
+    person("Shuo", "Wang", email = "wangsures@foxmail.com", role = c("aut")),
     person("Junyan", "Lu", email = "junyan.lu@uni-heidelberg.de", role = "aut")
   )
 Description: DrugScreenExplorer is a comprehensive R package designed for streamlined processing, quality control, and interactive visualization of high-throughput 
@@ -15,8 +15,8 @@ Description: DrugScreenExplorer is a comprehensive R package designed for stream
 			 even for those with limited programming experience. DrugScreenExplorer serves as a valuable resource for pharmacologists and biomedical researchers working 
 			 with large-scale drug screening datasets.
 License: Artistic-2.0
-URL: https://github.com/ShuoStat/DrugScreenExplorer
-BugReports: https://github.com/ShuoStat/DrugScreenExplorer
+URL: https://github.com/for-hyde/DrugScreenExplorer
+BugReports: https://github.com/for-hyde/DrugScreenExplorer
 Depends:
     R (>= 4.4.0),
     tidyverse
@@ -48,7 +48,8 @@ Imports:
     ggbeeswarm,
     kableExtra,
     plater,
-    magick
+    magick,
+    checkmate
 Suggests: 
     bayesynergy,
     knitr,

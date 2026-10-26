@@ -28,7 +28,9 @@
 #' The default value is 0, means no sample wells are used. If the value n >= 1,
 #' the n lowest concentrations will be used.
 #' @param span a numeric value. The span parameter for \code{loess} method,
-#' which controls the degree of smoothing.
+#' which controls the degree of smoothing. Values are typically between 0 and 1, 
+#' though values larger than 1 are accepted, the larger the value, the smoother 
+#' the fitted curve. The default value is 1.
 #' @param correctMethod a character string specifying the method used for
 #' adjusting the edge effect. Currently two methods 'bliss' and 'linear' are
 #' supported.
@@ -36,7 +38,7 @@
 #' signal intensity values divided by the estimated incubation/edge effect
 #' intensity.
 #' If \code{linear} is selected, the correction process will be smoothed by a
-#' linear function depends on the original normalized signal intensity. This
+#' linear function depending on the original normalized signal intensity. This
 #' option is suitable for the situation when the edge effect is very strong
 #' and results in instability in the correction process.
 #' @param exclude a list of samples that should be excluded when performing
@@ -65,13 +67,21 @@ correctEdgeEffect <- function(screenData,
                               exclude = c()) {
 
   # Input validation
-  if (!is.data.frame(screenData)) {
-    stop("screenData should be a data frame")
+  if (span <= 0 || is.na(span) || !is.numeric(span)) {
+    stop("span must be a positive numeric value")
   }
-  if (!all(c("normVal") %in% colnames(screenData))) {
-    stop("'screenData' must contain the column 'normVal'.")
+  checkmate::assert_choice(estimateMethod, c("loess", "sigmoid"))
+  checkmate::assert_choice(correctMethod, c("bliss", "linear"))
+  checkmate::assert_logical(useNeg, len = 1, any.missing = FALSE)
+  checkmate::assert_number(useLowConcentrations, lower = 0, finite = TRUE)
+  checkmate::assert_data_frame(screenData, any.missing = TRUE, 
+                                min.rows = 1, min.cols = 1)
+  checkmate::assert_names(names(screenData), must.include = c("sampleID", "fileName", 
+                            "wellType", "normVal"))
+# Warning if span > 1
+  if (span > 1) {
+    warning("Span value is greater than 1. This may result in over-smoothing of the edge effect estimation. Please ensure that this is the intended behavior.")
   }
-
   # argument match
   estimateMethod <- match.arg(estimateMethod, c("loess", "sigmoid"))
   correctMethod  <- match.arg(correctMethod, c("bliss", "linear"))
