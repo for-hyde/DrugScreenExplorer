@@ -25,8 +25,7 @@
 #' is the last column in the file.
 #' @param sep a character string specifying the delimiters for extracting values
 #' in the text file.
-#' A regular expression can be used. The default value is using either tab or
-#' semicolon as delimiter.
+#' A regular expression can be used. The default value is a semicolon (";").
 #' @param setManualRanges a logical value, whether to manually set the row and
 #' column ranges for extracting the actual values from the raw data files.
 #' The default value is \code{FALSE}. If \code{TRUE}, the user MUST provide the 
@@ -115,7 +114,7 @@
 readScreen <- function(rawDir,
                        plateAnnotationFile,
                        wellAnnotationFile,
-                       sep,
+                       sep=";",
                        setManualRanges = FALSE,
                        rowRange = NULL,
                        colRange = NULL,
@@ -127,245 +126,75 @@ readScreen <- function(rawDir,
                        commaAsDecimal = FALSE,
                        allowNA = FALSE,
                        bySample = FALSE) {
-
-  # argument matching
-  # If normalization == TRUE, perform checks.
-  if (normalization) {
-    method <- match.arg(method, c("negatives", "NPI"))
-    stopifnot(is.numeric(discardLayer))
-  }
-
-  # read sample annotation files
-  deciMark <- ifelse(commaAsDecimal, ",", ".")
-  freadSep <- if (grepl(";", sep)) {
-    ";"
-  } else if (grepl("\\\\t", sep) || grepl("\t", sep)) {
-    "\t"
-  } else {
-    sep
-  }
-
-  # Read plate annotation file
-  sampleAnno  <- read_delim(
-    plateAnnotationFile,
-    delim = "\t",
-    locale = locale(decimal_mark = deciMark),
-    col_types = cols()
-  )
-  # Check all names are present in the plate annotation file
-  if (!all(c("sampleID", "fileName") %in% colnames(sampleAnno))) {
-    stop("The plate annotation file must contain the following columns: sampleID and fileName")
-  }
-
-  rawFileList <- sampleAnno$fileName
-
-  # check if there are duplicated file names
-  allFiles <- vapply(rawFileList, basename, "c")
-  if (any(duplicated(allFiles))){
-    stop("Duplicated file names found")
-  }
-
-  # if rowRange and colRange are not provided, set setManualRanges = TRUE to prompt user to provide them
-  if (!(is.null(rowRange)) || !(is.null(colRange))) {
-    # A scalar column range means read from that column through the end.
-    if (length(rowRange) != 2 || length(colRange) < 1 ||
-        length(colRange) > 2) {
-      stop("rowRange must have length 2 and colRange must have length 1 or 2.")
-    }
-    setManualRanges <- TRUE
-  }
-
-  # If setManualRanges = TRUE, ensure rowRange and colRange are provided 
+  #Input validation
+  checkmate::assert_character(rawDir, len = 1, any.missing = FALSE)
+  checkmate::assert_directory_exists(rawDir, access = "r")
+  checkmate::assert_character(plateAnnotationFile, len = 1, any.missing = FALSE)
+  checkmate::assert_file_exists(plateAnnotationFile, access = "r")
+  checkmate::assert_character(wellAnnotationFile, len = 1, any.missing = FALSE)
+  checkmate::assert_file_exists(wellAnnotationFile, access = "r")
+  checkmate::assert_character(sep, len = 1, any.missing = FALSE)
+  checkmate::assert_logical(setManualRanges, len = 1, any.missing = FALSE)
   if (setManualRanges) {
-    if (is.null(rowRange) || is.null(colRange)) {
-      stop("rowRange and colRange must be provided when setManualRanges is TRUE")
-    }
-    screenData <- lapply(rawFileList, function(eachFile) {
-      plateData <- tryCatch({
-        dt <- data.table::fread(
-          paste0(rawDir,"/",eachFile),
-          sep = freadSep,
-          dec = deciMark,
-          skip = rowRange[1] - 1,
-          nrows = rowRange[2] - rowRange[1] + 1,
-          select = if (length(colRange) == 2) {
-            c(1, colRange[1]:colRange[2])
-          } else {
-            NULL
-          },
-        )
-        if (length(colRange) == 1) {
-          dt <- dt[, c(1, colRange[1]:ncol(dt)), with = FALSE]
-        }
-        dt <- dt[, !vapply(dt, function(x) {
-          all(is.na(x) | trimws(as.character(x)) == "")
-        }, logical(1)), with = FALSE]
-        names(dt)[1] <- "rowID"
-        names(dt)[-1] <- sprintf("%02d", seq_len(ncol(dt) - 1))
-        dt %>%
-          tidyr::pivot_longer(
-            cols = -rowID,
-            names_to = "colID",
-            values_to = "value"
-          ) %>%
-          dplyr::mutate(
-            rowID = paste0(rowID, "0"),
-            wellID = paste0(sub("0$", "", rowID),
-                            stringr::str_pad(colID, width = 3, pad = "0")),
-            value = as.numeric(value)
-          ) %>%
-          dplyr::select(wellID, rowID, colID, value) %>%
-          {
-            if (anyNA(.$value)) {
-              if (allowNA) {
-                warning("NA values detected in plate")
-              } else {
-                stop("NA values detected in plate. If NA values should be allowed, please set the 'allowNA = TRUE'")
-              }
-            }
-            .
-          } %>%
-          dplyr::mutate(fileName = eachFile)
-      }, error = function(e) {
-        # Just modify the error message without creating a new error
-        e$message <- sprintf("Error reading %s: %s", eachFile, e$message)
-        stop(e)
-      }) 
-    #Automatic working
-    }) %>% bind_rows()
-    } else {#If setManualRanges = False, attempt to automatically detect the data. 
-        screenData <- lapply(rawFileList, function(eachFile) {
-          plateData <- tryCatch({
-            extract_plate_block(
-              file_path = paste0(rawDir,"/",eachFile),
-              allowNA = allowNA
-            ) %>% dplyr::mutate(fileName = eachFile)
-          }, error = function(e){
-            e$message <- sprintf("Error reading %s: %s", eachFile, e$message)
-            stop(e)
-          })
-
-        }) %>% bind_rows()
-
-    }
-  # add sample annotations to screenData
-  screenData <- left_join(screenData, sampleAnno, by = "fileName")
-
-  # read drug annotation files
-  drugAnno <- read_delim(
-    wellAnnotationFile,
-    delim = "\t",
-    locale = locale(decimal_mark = deciMark),
-    col_types = cols()
-  )
-
-  # detect two-drug combination
-  # select colnames containing "drug1", but not "drug1a"
-  ind <- str_detect(colnames(screenData), "^drug\\d$")
-
-  # only two drug combination allowed
-  if (sum(ind) > 1)
-    stop("More than two drugs are detected:
-         a maximum two-drug combination is allowed.")
-
-  # if the second drug is not named as "drug2", rename it to drug2
-  if (sum(ind) == 1 & !"drug2" %in% colnames(screenData)) {
-    warning("The second drug is renamed as 'drug2'. ")
-    colnames(screenData)[ind] <- "drug2"
+    checkmate::assert_integerish(rowRange, len = 2, lower = 1,
+                                any.missing = FALSE, null.ok = TRUE)
+    checkmate::assert_integerish(colRange, min.len = 1, max.len = 2, lower = 1,
+                                  any.missing = FALSE, null.ok = TRUE)
   }
-
-  # select the second concentration in a similar format "^concentration\\d$
-  ind <- str_detect(colnames(screenData), "^concentration\\d$")
-
-  # only two drug combination allowed
-  if (sum(ind) > 1)
-    stop("More than two concentrations are detected:
-         a maximum two-drug combination is allowed.")
-
-  if (sum(ind) == 1 & !"concentration2" %in% colnames(screenData)) {
-    warning("The concentration for the second drug is renamed as 'concentration2'.")
-    colnames(screenData)[ind] <- "concentration2"
-  }
-
-  #
-  # if combination drug
-  # if ("drug2" %in% colnames(drugAnno))
-  #   drugAnno[,"combination"] <- paste0(drugAnno$drug, "_", drugAnno$drug2)
-
-  # add drug annotation information
-  if ("plateID" %in% colnames(drugAnno)) {
-    screenData <- left_join(screenData, drugAnno, by = c("wellID", "plateID"))
-  } else {
-    screenData <- left_join(screenData, drugAnno, by = "wellID")
-  }
-
-  # add well type information
-  if (length(intersect(negWell, posWell)) != 0){
-    stop("Overlap in postive and negative control well list")
-  }
-
-  # Can I remove wellID here?
-
-  # Scenario for drug combination
-  if ("drug2" %in% colnames(screenData)){
-
-    # Both drug_drug2 amd drug2_drug work
-    combs <- cbind(paste0(drugAnno$drug, "_", drugAnno$drug2),
-                   paste0(drugAnno$drug2, "_", drugAnno$drug))
-
-    screenData <-
-      dplyr::mutate(screenData,
-                    wellType = case_when(
-                      (wellID %in% negWell | combs[,1] %in% negWell |
-                         combs[,2] %in% negWell) ~ "neg",
-                      (wellID %in% posWell | combs[,1] %in% posWell |
-                         combs[,2] %in% posWell) ~ "pos",
-                      .default = "sample"))
-  } else if ("drug" %in% colnames(screenData)) {
-    screenData <- dplyr::mutate(
-      screenData,
-      wellType = case_when(wellID %in% negWell | drug %in% negWell ~ "neg",
-                           wellID %in% posWell | drug %in% posWell ~ "pos",
-                           .default = "sample"))
-  } else {
-    screenData <-
-      dplyr::mutate(screenData,
-                    wellType = case_when(wellID %in% negWell ~ "neg",
-                                         wellID %in% posWell ~ "pos",
-                                         .default = "sample"))
-  }
-
+  checkmate::assert_logical(normalization, len = 1, any.missing = FALSE)
+  checkmate::assert_character(negWell, any.missing = FALSE, null.ok = TRUE)
+  checkmate::assert_character(posWell, any.missing = FALSE, null.ok = TRUE)
   if (normalization) {
-    # normalizing plates
+    checkmate::assert_choice(method, c("negatives", "NPI"))
+    checkmate::assert_integerish(discardLayer, len = 1, lower = 0, any.missing = FALSE)
+  }
+  checkmate::assert_logical(commaAsDecimal, len = 1, any.missing = FALSE)
+  checkmate::assert_logical(allowNA, len = 1, any.missing = FALSE)
+  checkmate::assert_logical(bySample, len = 1, any.missing = FALSE)
+
+  # if commaAsDecimal is TRUE, set decimal mark to ",", otherwise "."
+  deciMark <- ifelse(commaAsDecimal, ",", ".")
+  
+  # Read plate annotation file, function in helper.R
+  sampleAnno <- readPlateAnno(plateAnnotationFile, deciMark)
+  rawFileList <- lapply(sampleAnno$fileName, function(x) paste0(rawDir, "/", x))
+  
+  # Read well annotation file, function in helper.R
+  wellAnno <- readWellAnno(wellAnnotationFile, deciMark)
+  # Plate size from well annotation file, function in helper.R
+  wellDims <- getWellDims(wellAnno)
+  
+  # If a rowRange and column Range are provided, set setManualRanges to TRUE. 
+  if (!(is.null(rowRange)) || !(is.null(colRange))) {
+    setManualRanges <- validateRanges(rowRange, colRange)
+  }
+  
+  if (setManualRanges) {
+    screenData <- parseManual(rawFileList, rowRange, colRange, sep,
+                              deciMark, wellDims)
+    screenData <- checkManualHeaders(screenData)
+  } else {
+    screenData <- parseAutomatic(rawFileList, deciMark, wellDims)
+    screenData <- addHeaderAndIndex(screenData, TRUE, TRUE)
+  }
+  # Pivot to long
+  screenData <- convertPlateToLong(screenData)
+
+  # Merge with sampleAnno
+  screenData <- dplyr::left_join(screenData, sampleAnno, by = "fileName")
+  
+  # Merge with drugAnno
+  screenData <- joinWellAnno(screenData, wellAnno, negWell, posWell)
+  
+  # Perform normalization if requested
+  if (normalization){
     screenData <- normalizePlate(
-      screenData = screenData,
+      screenData,
       method = method,
       discardLayer = discardLayer,
-      bySample = bySample)
+      bySample = bySample
+    )
   }
-
-  if ("batch" %in% colnames(screenData)) {
-    # batch as factor
-    screenData$batch <- factor(screenData$batch)
-  }
-
-  # transfer concentration to numeric values
-  if ("concentration" %in% colnames(screenData)) {
-    # concentration as numeric
-    screenData$concentration <-
-      as.numeric(as.character(screenData$concentration))
-    if ("concentration2" %in% colnames(screenData)){
-      screenData$concentration2 <-
-        as.numeric(as.character(screenData$concentration2))
-    }
-  }
-
-  screenData <- ungroup(screenData)  #%>% mutate_if(is.character, factor)
-
-  # clean up file name
-  screenData <- screenData %>%
-    dplyr::mutate(fileName = basename(fileName)) %>%
-    dplyr::mutate(fileName = tools::file_path_sans_ext(fileName))
-
+  
   return(screenData)
 }

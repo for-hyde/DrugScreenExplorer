@@ -1,8 +1,5 @@
-# Some helper functions
-## Function to read screen data from one plate
-
-
-## Function to make pdf for a list of ggplot objects
+# helper functions for DrugScreenExplorer
+###-----Plotting_Functions-----###
 makepdf <- function(x, name, ncol = 3, nrow = 2, width = 20, height = 12) {
 
   if (length(x) == 0)
@@ -20,22 +17,7 @@ makepdf <- function(x, name, ncol = 3, nrow = 2, width = 20, height = 12) {
 
 }
 
-
-## Function to generate an ordered row IDs based on the number of rows
-genRowIDs <- function(x) {
-  if (x > 702)
-    stop("Rows exceeds maximal supported number (n=702)")
-
-  allID <- c(paste0(LETTERS, 0),
-             paste0(rep(LETTERS, each = 26), rep(LETTERS, times = 26)))
-
-  return(allID[seq(1, x)])
-}
-
-## Function to generate an ordered column IDs based on the number of columns
-genColIDs <- function(x) {
-  formatC(seq(x), width = 2, format = "d", flag = "0")
-}
+###---Curve_Fitting_Functions---###
 
 ## Function for fitting edge effect using loess local regression method
 fitOneLoess <- function(plateData,
@@ -407,112 +389,7 @@ plotEdgeEffect <- function(matPlate, plateList, limits) {
   return(plotList)
 }
 
-#Experimental function for automated parsing of raw datafiles. Takes file path,
-# then extracts the well plate information based on regex parsing.
-extract_plate_block <- function(file_path, allowNA = FALSE){
-    #Read in lines
-    raw_lines <- readLines(file_path, warn = FALSE)
-
-    # This regex catches 'A,' or 'A\t' or 'A;' or ',A,'
-    start_idx <- grep("^(,)?A(,|\\t|;)", raw_lines)
-
-    # Check if a start has been found
-    if (length(start_idx) == 0){
-      stop("Could not Automatically locate the start of the plate grid (Row A)")
-    }
-
-    target_line <- raw_lines[start_idx[1]]
-    delim <- if (grepl("\\t", target_line)) "\t" else if (grepl(";", target_line)) ";" else ","
-
-    #Set header as row directly above A
-    header_idx <- start_idx[1] - 1
-
-    #Dynamically determine plate size by counting elements in the header row
-    header_elements <- strsplit(raw_lines[header_idx], delim)[[1]]
-    # Remove empty elements to get an accurate count of column headers
-    num_cols <- length(header_elements[header_elements != ""])
-
-    #set number of rows based on known row-ratios from column numbers.
-    rows_lookup <- c(
-      `3`  = 2,
-      `4`  = 3,
-      `6`  = 4,
-      `8`  = 6,
-      `12` = 8,
-      `24` = 16,
-      `48` = 32
-    )
-    row_count <- rows_lookup[as.character(num_cols)]
-    end_idx <- header_idx + row_count
-
-    #Extract the text block
-    isolated_lines <- raw_lines[header_idx:end_idx]
-
-    #Read text block as matrix
-    raw_matrix <- do.call(rbind, strsplit(isolated_lines, delim))
-
-    raw_matrix[1,1] <- "RowLetter"
-    # Convert to data frame
-    plate_df <- as.data.frame(raw_matrix, stringsAsFactors = FALSE)
-
-    screenData <- convert_plate_to_long(plate_df, allowNA = allowNA)
-
-    return(screenData)
-}
-
-# Function to convert plate layout to long format with wellID, rowID, colID, and value columns.
-convert_plate_to_long <- function(plate_df, allowNA = FALSE) {
-    #Extract column numbers
-    idx <- as.character(unlist(plate_df[1, -1]))
-    #remove from df
-    plate_df <- plate_df[-1, ]
-    #Set column names
-    names(plate_df) <- c("rowID", idx)
-
-    #Convert to long format
-    plate_df <- tidyr::pivot_longer(
-      plate_df,
-      cols = -rowID,
-      names_to = "colID",
-      values_to = "values"
-    )
-
-    screenData <- plate_df %>%
-      mutate(
-        wellID = paste0(rowID, str_pad(colID, width = 3, pad = "0")),
-        rowID = paste0(rowID, "0"),
-        value = as.numeric(values)
-      ) %>%
-      select(wellID, rowID, colID, value)
-
-    if (anyNA(screenData$value)) {
-      if (allowNA) {
-        warning("NA values detected in plate")
-      } else {
-        stop("NA values detected in plate. If NA values should be allowed, please set the 'allowNA = TRUE'")
-      }
-    }
-
-    return(screenData)
-
-    # temp_file <- tempfile(fileext = ".csv")
-    # on.exit(unlink(temp_file), add = TRUE)
-
-    # readr::write_csv(plate_df, file = temp_file)
-    # plate_df <- plater::read_plate(temp_file)
-
-    # screenData <- plate_df %>%
-    #   extract(Wells, into = c("row_letter", "colID"), regex = "([A-Z]+)(\\d+)", remove = FALSE) %>%
-    #   mutate(
-    #     rowID = paste0(row_letter, "0"),
-    #     wellID = paste0(row_letter, str_pad(colID, width =3, pad = "0")),
-    #     value = as.numeric(values)
-    #   ) %>%
-    #   select(wellID, rowID, colID, value)
-
-    # return(screenData)
-}
-
+###----Summarise_Screen_Functions--###
 
 # Calculate one DSS variant. This is used by the public calcDSS wrapper below.
 calcDSS_single <- function(value, conc, dssType = "DSS2", threshold = 10) {
@@ -623,3 +500,240 @@ calcDSS <- function(value, conc, dssType = "DSS2", threshold = 10) {
     scores
   }
 }
+
+###----readScreen_Functions-----### 
+#Read plate annotation file, check present columns. 
+readPlateAnno <- function(filePath, deciMark){
+  sampleAnno <- read_delim(
+    filePath,
+    delim = "\t",
+    locale = locale(decimal_mark = deciMark),
+    col_types = cols()
+  )
+  # Ensure columns are present
+  if (!all(c("sampleID", "fileName") %in% colnames(sampleAnno))) {
+    stop("The plate annotation file must contain the following columns: sampleID and fileName")
+  }
+  # Ensure all filenames are unique
+  raw_filenames <- sampleAnno$fileName
+  all_files <- vapply(raw_filenames, basename, "c")
+  if (any(duplicated(all_files))) {
+    stop("Duplicate file names found in the plate annotation file. Please ensure all file names are unique.")
+  }
+  return(sampleAnno)
+}
+
+readWellAnno <- function(filePath, deciMark){
+  wellAnno <- read_delim(
+    filePath,
+    delim = "\t",
+    locale = locale(decimal_mark = deciMark),
+    col_types = cols()
+  )
+  # Ensure columns are present
+  if (!all(c("wellID", "drug", "concentration") %in% colnames(wellAnno))) {
+    stop("The well annotation file must contain the following columns: wellID, 
+         drug, and concentration.")
+  }
+  return(wellAnno)
+}
+
+getWellDims <- function(wellFile){
+  wells <- wellFile$wellID
+  #Extract number of rows and columns from well IDs
+  rowIDs <- unique(substr(wells, 1, 2))
+  colIDs <- unique(as.numeric(substr(wells, 3, nchar(wells))))
+  #export total size
+  plate_size <- c(
+    rows = length(rowIDs), 
+    cols = length(colIDs))
+  return(plate_size)
+}
+
+validateRanges <- function(rowRange, colRange){
+  if (length(rowRange) != 2 || length(colRange) < 1){
+    warning("Rows and columns must be specified. Using automatic parsing.")
+    return(FALSE)
+  }
+  if (any(rowRange < 1) || any(colRange < 1)){
+    warning("rowRange and colRange must contain positive integers.
+    Using automatic parsing.")
+    return(FALSE)
+  }
+  "valid row and column ranges provided. Using manual parsing."
+  return(TRUE)
+}
+
+parseManual <- function(fileList, rowRange, colRange, 
+                        sep, deciMark, plateSize){
+  screenData <- lapply(fileList, function(eachFile){
+    #Manual reading from specified row and column ranges
+    plateData <- data.table::fread(
+      eachFile,
+      sep = sep,
+      dec = deciMark,
+      header = FALSE,
+      skip = rowRange[1] - 1,
+      nrows = rowRange[2] - rowRange[1] + 1,
+      select = if (length(colRange) == 2) {
+        seq(colRange[1], colRange[2])
+      } else {
+        colRange
+      },
+      data.table = FALSE
+    )
+    dplyr::mutate(
+      plateData,
+      fileName = basename(eachFile)
+    )
+  })
+}
+
+parseAutomatic <- function(fileList, decimark, wellDims) {
+  screenData <- lapply(fileList, function(eachFile){
+    #read in raw lines
+    raw_lines <- readLines(eachFile, warn = FALSE)
+    #Search for potential start of plate grid (A + delimiter)
+    start_idx <- grep("^(,)?A(,|\\t|;)", raw_lines)
+    if (length(start_idx) == 0){
+      stop(paste0("Could not Automatically locate the start of the plate grid\n
+      Check file formatting or use manual parsing with rowRange and colRange specified."))
+    }
+    #Using target line, determine delimiter, extract plate
+    target_line <- raw_lines[start_idx[1]]
+    delim <- if (grepl("\\t", target_line)) "\t" else if (grepl(";", target_line)) ";" else ","
+    
+    #Set header as row directly above A
+    header_idx <- start_idx[1]
+    
+    #Determine plate by wellDims, extract text block, read as matrix, convert to data frame
+    cols <- wellDims[2]
+    rows <- wellDims[1]
+    end_idx <- header_idx + rows
+    isolated_lines <- raw_lines[header_idx:end_idx]
+    raw_matrix <- do.call(rbind, strsplit(isolated_lines, delim))
+    
+    plate_df <- as.data.frame(raw_matrix, stringsAsFactors = FALSE)
+    #Remove first column
+    plate_df <- plate_df[, -1]
+    #Add fileName
+    plate_df <- dplyr::mutate(
+      plate_df, 
+      fileName = basename(eachFile))
+    file.path()
+    
+    return(plate_df)
+    
+  })
+  
+  return(screenData)
+}  
+
+#When manual loading is performed, check if data includes the header and column. 
+#Automatically generate row and column IDs in any case
+checkManualHeaders <- function(screenData){
+  firstPlate <- screenData[[1]]
+  if (grepl(firstPlate[2, 1], "A")) {
+    no_index <- FALSE
+  } else {
+    no_index <- TRUE
+  }
+  #Compare if integer value 
+  if (as.integer(firstPlate[1, 2]) != as.integer(1)) {
+    no_header <- TRUE
+  } else {
+    no_header <- FALSE
+  }
+  screenData_mod <-addHeaderAndIndex(screenData, no_index = no_index, no_header = no_header)
+  
+  return(screenData_mod)
+}
+
+addHeaderAndIndex <- function(screenData, no_index, no_header){
+  if (!no_index) {
+    #remove first column (row index)
+    screenData <- lapply(screenData, function(plate) {
+      plate <- plate[, -1]
+      return(plate)
+    })
+  }
+  if (!no_header) {
+    #remove first row (column header)
+    screenData <- lapply(screenData, function(plate) {
+      plate <- plate[-1, ]
+      return(plate)
+    })
+  }
+  screenData <- lapply(screenData, function(plate) {
+    # Generate row and column IDs
+    num_rows <- nrow(plate)
+    num_cols <- ncol(plate) - 1 #fileName column
+    row_ids <- genRowIDs(num_rows)
+    col_ids <- genColIDs(num_cols)
+    
+    # Add row and column IDs to the plate data
+    plate <- cbind(rowID = row_ids, plate)
+    names(plate) <- c("rowID", col_ids, "fileName")
+    
+    return(plate)
+  })
+  
+  return(screenData)
+}
+
+convertPlateToLong <- function(screenData){
+  #Convert to long dfs
+  long_plates <- lapply(screenData, function(plate) {
+    cols <- setdiff(names(plate), c("rowID","fileName"))
+    tidyr::pivot_longer(
+      plate, 
+      cols = cols, 
+      names_to = "colID",
+      values_to = "value")
+  })
+  #Combine dfs into one, add wellID column
+  long_plates %>% 
+    dplyr::bind_rows() %>%
+    dplyr::mutate(wellID = paste0(rowID, colID))
+}
+
+## Function to generate an ordered row IDs based on the number of rows
+genRowIDs <- function(x) {
+  if (x > 702)
+    stop("Rows exceeds maximal supported number (n=702)")
+
+  allID <- c(paste0(LETTERS, 0),
+             paste0(rep(LETTERS, each = 26), rep(LETTERS, times = 26)))
+
+  return(allID[seq(1, x)])
+}
+
+## Function to generate an ordered column IDs based on the number of columns
+genColIDs <- function(x) {
+  formatC(seq(x), width = 2, format = "d", flag = "0")
+}
+
+# Join Well annotation data and label controls
+joinWellAnno <- function(screenData, wellData, negCtrl, posCtrl){
+  #join on wellID
+  screenData <- dplyr::left_join(
+    screenData, wellData, by = "wellID"
+  )
+  screenData <- screenData %>%
+    dplyr::mutate(
+      wellType = if ("drug2" %in% names(.)){
+        dplyr::case_when(
+          drug %in% posCtrl & drug2 %in% posCtrl ~ "pos",
+          drug %in% negCtrl & drug2 %in% negCtrl ~ "neg",
+          TRUE ~ "sample")
+      } else {
+        dplyr::case_when(
+          drug %in% posCtrl ~ "pos",
+          drug %in% negCtrl ~ "neg",
+          TRUE ~ "sample"
+        )
+      }
+    )
+   return(screenData)
+}
+
