@@ -670,30 +670,30 @@ addHeaderAndIndex <- function(screenData, no_index, no_header){
     num_cols <- ncol(plate) - 1 #fileName column
     row_ids <- genRowIDs(num_rows)
     col_ids <- genColIDs(num_cols)
-    
+
     # Add row and column IDs to the plate data
     plate <- cbind(rowID = row_ids, plate)
     names(plate) <- c("rowID", col_ids, "fileName")
-    
-    return(plate)
+
+    plate
   })
-  
-  return(screenData)
+
+  screenData
 }
 
 convertPlateToLong <- function(screenData){
   #Convert to long dfs
   long_plates <- lapply(screenData, function(plate) {
-    cols <- setdiff(names(plate), c("rowID","fileName"))
+    col_nums <- setdiff(names(plate), c("rowID","fileName"))
     tidyr::pivot_longer(
-      plate, 
-      cols = cols, 
-      names_to = "colID",
-      values_to = "value")
+                        plate,
+                        cols = dplyr::all_of(col_nums),
+                        names_to = "colID",
+                        values_to = "value")
   })
   #Combine dfs into one, add wellID column
-  long_plates %>% 
-    dplyr::bind_rows() %>%
+  long_plates |>
+    dplyr::bind_rows() |>
     dplyr::mutate(wellID = paste0(rowID, colID))
 }
 

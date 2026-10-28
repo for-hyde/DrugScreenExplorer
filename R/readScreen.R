@@ -182,7 +182,12 @@ readScreen <- function(rawDir,
 
   # Merge with sampleAnno
   screenData <- dplyr::left_join(screenData, sampleAnno, by = "fileName")
-  
+  # Remove ".txt" from fileName if present
+  screenData <- dplyr::mutate(
+    screenData, 
+    fileName = tools::file_path_sans_ext(fileName),#remove endings from fileName,
+    value = as.numeric(value), # convert value to numeric
+    )
   # Merge with drugAnno
   screenData <- joinWellAnno(screenData, wellAnno, negWell, posWell)
   
