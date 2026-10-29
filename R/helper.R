@@ -1,5 +1,5 @@
 # helper functions for DrugScreenExplorer
-###-----Plotting_Functions-----###
+####-----Plotting_Functions-----####
 makepdf <- function(x, name, ncol = 3, nrow = 2, width = 20, height = 12) {
 
   if (length(x) == 0)
@@ -16,239 +16,6 @@ makepdf <- function(x, name, ncol = 3, nrow = 2, width = 20, height = 12) {
     invisible
 
 }
-
-###---Curve_Fitting_Functions---###
-
-## Function for fitting edge effect using loess local regression method
-fitOneLoess <- function(plateData,
-                        useNeg,
-                        useLowConcentrations,
-                        lowConcTab,
-                        span) {
-
-  # select 'de facto' negative controll wells for surface fitting
-  if (!useNeg) {
-    #do not use positive controls
-    fitIn <- plateData[!plateData$wellType %in% "pos", ]
-  } else {
-
-    if (!"wellType" %in% colnames(plateData))
-      stop("No well type information found")
-
-    if (useLowConcentrations > 0) {
-
-      # lowest concentrations are also used for fitting
-      lowConc <- paste0(lowConcTab$drug, "_", lowConcTab$concentration)
-      lowConcWell <-
-        plateData[paste0(plateData$drug, "_", plateData$concentration)
-                  %in% lowConc, ]$wellID
-
-    } else lowConcWell <- c()
-
-    fitIn <- plateData[plateData$wellType %in% "neg" |
-                         plateData$wellID %in% lowConcWell, ]
-  }
-
-  # fit the surface using loess model
-  lo <- loess(normVal ~ numRowID + numColID, data = fitIn,
-              control = loess.control(surface = "direct"), span = span)
-  plateData$edgeFactor <- predict(lo, newdata = plateData)
-  plateData
-}
-
-# Get initial values based on the values on the plate
-
-getIniParm <- function(fitIn) {
-
-  # estimate initial values based on the values on the plate
-  dr1 <- median(fitIn[fitIn$numRowID == min(fitIn$numRowID), ]$normVal)
-  cr2 <- 1 - median(fitIn[fitIn$numRowID == max(fitIn$numRowID), ]$normVal)
-  dc1 <- median(fitIn[fitIn$numColID == min(fitIn$numColID), ]$normVal)
-  cc2 <- 1 - median(fitIn[fitIn$numColID == max(fitIn$numColID), ]$normVal)
-
-  er1 <- max(fitIn$numRowID) * 0.1
-  er2 <- max(fitIn$numRowID) + 1 - er1
-  ec1 <- max(fitIn$numColID) * 0.1
-  ec2 <- max(fitIn$numColID) + 1 - ec1
-  sr1 <- 0.5
-  sr2 <- 0.5
-  sc1 <- 0.5
-  sc2 <- 0.5
-
-  paraIni <- c(dr1 = dr1, cr2 = cr2, dc1 = dc1,
-               cc2 = cc2, er1 = er1, er2 = er2,
-               ec1 = ec1, ec2 = ec2, sr1 = sr1, sr2 = sr2,
-               sc1 = sc1, sc2 = sc2)
-
-  return(paraIni)
-}
-
-#function for 2D sigmoid curv-fitting
-esFun <- function(data, par) {
-  with(data,
-       sum(((normVal - (1 + (par[1] - 1)/(1 + exp((numRowID - par[5])/par[9])) -
-                          par[2] + par[2]/(1 + exp((numRowID - par[6])/par[10]))) *
-               (1 + (par[3] - 1)/(1 + exp((numColID - par[7])/par[11])) -
-                  par[4] + par[4]/(1 + exp((numColID - par[8])/par[12])))))^2))
-}
-
-#function for predict values based on 2D sigmoid model
-predictFun <- function(numRowID, numColID, par) {
-  (1 + (par[1] - 1)/(1 + exp((numRowID - par[5])/par[9])) - par[2] +
-     par[2]/(1 + exp((numRowID - par[6])/par[10]))) *
-    (1 + (par[3] - 1)/(1 + exp((numColID - par[7])/par[11])) - par[4] +
-       par[4]/(1 + exp((numColID - par[8])/par[12])))
-}
-
-## Function for fitting edge effect using 2D sigmoid model (experimental feature)
-fitOneSigmoid <- function(plateData, useNeg, useLowConcentrations, lowConcTab) {
-
-  if (!"wellType" %in% colnames(plateData))
-    stop("No well type information found")
-
-  # select 'de facto' negative control wells for surface fitting
-  if (!useNeg) {
-    #do not use positive controls
-    fitIn <- plateData[!plateData$wellType %in% "pos", ]
-  } else {
-    if (useLowConcentrations > 0) {
-      # lowest concentrations are also used for fitting
-      lowConc <- paste0(lowConcTab$drug, "_", lowConcTab$concentration)
-      lowConcWell <-
-        plateData[paste0(plateData$drug, "_",
-                         plateData$concentration) %in% lowConc, ]$wellID
-
-    } else lowConcWell <- c()
-
-    fitIn <- plateData[plateData$wellType %in% "neg" |
-                         plateData$wellID %in% lowConcWell, ]
-  }
-
-  paraIni <- getIniParm(fitIn)
-
-  edgeFactors <- tryCatch({
-    sig2D <- optim(par = paraIni, esFun, data = fitIn)
-    predictFun(plateData$numRowID, plateData$numColID, sig2D$par)
-  }, error = function(err) {
-    warning("Edge effect estimate using 2D-sigmoid model failed.
-            Set edgeEffect value to 1")
-    rep(1, nrow(plateData))
-  })
-
-  plateData$edgeFactor <- edgeFactors
-  plateData
-}
-
-
-# Function to calculate AUC using linear-log (on X) trapezoidal method
-# Use summariseScreen() to calculate AUC.
-calcAUC <- function(value, conc, viabCut = NULL) {
-  
-  valueConc <- data.frame(viab = value, conc = conc) %>%
-    dplyr::filter(!is.na(conc) & conc > 0) %>%
-    dplyr::group_by(conc) %>%
-    dplyr::summarise(viab = mean(viab)) %>%
-    dplyr::ungroup() %>%
-    dplyr::arrange(conc)
-
-  # censor the values based on viability cut-off
-  if (!is.null(viabCut)) {
-    valueConc <- dplyr::mutate(valueConc, viab = viab + 1 - viabCut) %>%
-      dplyr::mutate(viab = ifelse(viab > 1, 1, viab))
-  }
-
-  if (nrow(valueConc) %in% c(0, 1)) {
-    return(mean(valueConc$viab, na.rm = TRUE))
-  } else {
-    areaTotal <- 0
-    for (i in seq(nrow(valueConc) - 1)) {
-      areaEach  <- (valueConc$viab[i] + valueConc$viab[i + 1]) *
-        log(valueConc$conc[i + 1]/valueConc$conc[i]) * 0.5
-      areaTotal <- areaTotal + areaEach
-    }
-    aucRatio <- areaTotal / log(valueConc[nrow(valueConc), ]$conc / valueConc[1, ]$conc)
-    return(aucRatio)
-  }
-}
-
-# Function to correct edge effect using a specialized linear model, to fix
-# issue of over correcting of bliss model. This is only an experimental function
-
-corEdgeLinear <- function(x, m) {
-
-  inTab <- data.frame(normVal = x, edgeFactor = m)
-
-  s <- apply(inTab, 1, function(eachRow) {
-    if (eachRow[1] < 0) {
-      eachRow[1]
-    } else if (eachRow[1] >= 0 & eachRow[1] <= eachRow[2]) {
-      eachRow[1]/eachRow[2]
-    } else {
-      eachRow[1] + 1 - eachRow[2]
-    }
-  })
-  s
-}
-
-
-# estimate the edge effect on one plate
-
-estimateOnePlate <- function(plateData, nLayer, onlyNeg) {
-
-  if (nLayer < 1) {
-    stop("At least only layer needs to be specified as edge")
-  } else {
-    nCol <- length(unique(plateData$colID))
-    nRow <- length(unique(plateData$rowID))
-    edgeCol <- genColIDs(nCol)[c(seq(1, nLayer), seq(nCol - nLayer + 1, nCol))]
-    edgeRow <- genRowIDs(nRow)[c(seq(1, nLayer), seq(nRow - nLayer + 1, nRow))]
-  }
-
-  edgeWell <-
-    dplyr::filter(plateData, colID %in% edgeCol, rowID %in% edgeRow) %>%
-    dplyr::select(wellID, value, wellType)
-  innerWell <- dplyr::filter(plateData, !wellID %in% edgeWell$wellID)
-
-  if (onlyNeg) {
-    # only use negative control wells, check whether they are present in edge
-    # and innel wells
-    if (!"neg" %in% edgeWell$wellType)
-      stop("No negative control wells found on the edge.")
-    if (!"neg" %in% innerWell$wellType)
-      stop("No negative control wells found on the inner plate")
-    edgeFac <-
-      median(edgeWell$value, na.rm=TRUE) / median(innerWell$value, na.rm = TRUE)
-  } else {
-    edgeFac <-
-      median(edgeWell$value, na.rm=TRUE) / median(innerWell$value, na.rm = TRUE)
-  }
-
-  edgeFac
-}
-
-# Determin the type of input vector
-detectClass <- function(x) {
-  # change potential NA records to NA
-  x[x %in% c("", "NA")] <- NA
-  x <- na.omit(x)
-  nx <- length(unique(x))
-
-  if (nx <= 1) {
-    return("nd")
-  } else if (nx == 2) {
-    return("binary")
-  } else {
-    x.num <- as.numeric(as.character(x))
-    if (all(!is.na(x.num))) {
-      return("continuous")
-    } else {
-      if (nx < length(x)) {
-        return("categorical")
-      } else return("nd")
-    }
-  }
-}
-
 
 #- plot viability heatmap for each plate
 plotViability <- function(matPlate, plateList, limits, ifCorrected) {
@@ -389,7 +156,205 @@ plotEdgeEffect <- function(matPlate, plateList, limits) {
   return(plotList)
 }
 
-###----Summarise_Screen_Functions--###
+####---Curve_Fitting_Functions---####
+
+## Function for fitting edge effect using loess local regression method
+fitOneLoess <- function(plateData,
+                        useNeg,
+                        useLowConcentrations,
+                        lowConcTab,
+                        span) {
+
+  # select 'de facto' negative controll wells for surface fitting
+  if (!useNeg) {
+    #do not use positive controls
+    fitIn <- plateData[!plateData$wellType %in% "pos", ]
+  } else {
+
+    if (!"wellType" %in% colnames(plateData))
+      stop("No well type information found")
+
+    if (useLowConcentrations > 0) {
+
+      # lowest concentrations are also used for fitting
+      lowConc <- paste0(lowConcTab$drug, "_", lowConcTab$concentration)
+      lowConcWell <-
+        plateData[paste0(plateData$drug, "_", plateData$concentration)
+                  %in% lowConc, ]$wellID
+
+    } else lowConcWell <- c()
+
+    fitIn <- plateData[plateData$wellType %in% "neg" |
+                         plateData$wellID %in% lowConcWell, ]
+  }
+
+  # fit the surface using loess model
+  lo <- loess(normVal ~ numRowID + numColID, data = fitIn,
+              control = loess.control(surface = "direct"), span = span)
+  plateData$edgeFactor <- predict(lo, newdata = plateData)
+  plateData
+}
+
+# Get initial values based on the values on the plate
+
+getIniParm <- function(fitIn) {
+
+  # estimate initial values based on the values on the plate
+  dr1 <- median(fitIn[fitIn$numRowID == min(fitIn$numRowID), ]$normVal)
+  cr2 <- 1 - median(fitIn[fitIn$numRowID == max(fitIn$numRowID), ]$normVal)
+  dc1 <- median(fitIn[fitIn$numColID == min(fitIn$numColID), ]$normVal)
+  cc2 <- 1 - median(fitIn[fitIn$numColID == max(fitIn$numColID), ]$normVal)
+
+  er1 <- max(fitIn$numRowID) * 0.1
+  er2 <- max(fitIn$numRowID) + 1 - er1
+  ec1 <- max(fitIn$numColID) * 0.1
+  ec2 <- max(fitIn$numColID) + 1 - ec1
+  sr1 <- 0.5
+  sr2 <- 0.5
+  sc1 <- 0.5
+  sc2 <- 0.5
+
+  paraIni <- c(dr1 = dr1, cr2 = cr2, dc1 = dc1,
+               cc2 = cc2, er1 = er1, er2 = er2,
+               ec1 = ec1, ec2 = ec2, sr1 = sr1, sr2 = sr2,
+               sc1 = sc1, sc2 = sc2)
+
+  return(paraIni)
+}
+
+#function for 2D sigmoid curv-fitting
+esFun <- function(data, par) {
+  with(data,
+       sum(((normVal - (1 + (par[1] - 1)/(1 + exp((numRowID - par[5])/par[9])) -
+                          par[2] + par[2]/(1 + exp((numRowID - par[6])/par[10]))) *
+               (1 + (par[3] - 1)/(1 + exp((numColID - par[7])/par[11])) -
+                  par[4] + par[4]/(1 + exp((numColID - par[8])/par[12])))))^2))
+}
+
+#function for predict values based on 2D sigmoid model
+predictFun <- function(numRowID, numColID, par) {
+  (1 + (par[1] - 1)/(1 + exp((numRowID - par[5])/par[9])) - par[2] +
+     par[2]/(1 + exp((numRowID - par[6])/par[10]))) *
+    (1 + (par[3] - 1)/(1 + exp((numColID - par[7])/par[11])) - par[4] +
+       par[4]/(1 + exp((numColID - par[8])/par[12])))
+}
+
+## Function for fitting edge effect using 2D sigmoid model (experimental feature)
+fitOneSigmoid <- function(plateData, useNeg, useLowConcentrations, lowConcTab) {
+
+  if (!"wellType" %in% colnames(plateData))
+    stop("No well type information found")
+
+  # select 'de facto' negative control wells for surface fitting
+  if (!useNeg) {
+    #do not use positive controls
+    fitIn <- plateData[!plateData$wellType %in% "pos", ]
+  } else {
+    if (useLowConcentrations > 0) {
+      # lowest concentrations are also used for fitting
+      lowConc <- paste0(lowConcTab$drug, "_", lowConcTab$concentration)
+      lowConcWell <-
+        plateData[paste0(plateData$drug, "_",
+                         plateData$concentration) %in% lowConc, ]$wellID
+
+    } else lowConcWell <- c()
+
+    fitIn <- plateData[plateData$wellType %in% "neg" |
+                         plateData$wellID %in% lowConcWell, ]
+  }
+
+  paraIni <- getIniParm(fitIn)
+
+  edgeFactors <- tryCatch({
+    sig2D <- optim(par = paraIni, esFun, data = fitIn)
+    predictFun(plateData$numRowID, plateData$numColID, sig2D$par)
+  }, error = function(err) {
+    warning("Edge effect estimate using 2D-sigmoid model failed.
+            Set edgeEffect value to 1")
+    rep(1, nrow(plateData))
+  })
+
+  plateData$edgeFactor <- edgeFactors
+  plateData
+}
+
+# Function to correct edge effect using a specialized linear model, to fix
+# issue of over correcting of bliss model. This is only an experimental function
+
+corEdgeLinear <- function(x, m) {
+
+  inTab <- data.frame(normVal = x, edgeFactor = m)
+
+  s <- apply(inTab, 1, function(eachRow) {
+    if (eachRow[1] < 0) {
+      eachRow[1]
+    } else if (eachRow[1] >= 0 & eachRow[1] <= eachRow[2]) {
+      eachRow[1]/eachRow[2]
+    } else {
+      eachRow[1] + 1 - eachRow[2]
+    }
+  })
+  s
+}
+
+# estimate the edge effect on one plate
+estimateOnePlate <- function(plateData, nLayer, onlyNeg) {
+
+  if (nLayer < 1) {
+    stop("At least only layer needs to be specified as edge")
+  } else {
+    nCol <- length(unique(plateData$colID))
+    nRow <- length(unique(plateData$rowID))
+    edgeCol <- genColIDs(nCol)[c(seq(1, nLayer), seq(nCol - nLayer + 1, nCol))]
+    edgeRow <- genRowIDs(nRow)[c(seq(1, nLayer), seq(nRow - nLayer + 1, nRow))]
+  }
+
+  edgeWell <-
+    dplyr::filter(plateData, colID %in% edgeCol, rowID %in% edgeRow) %>%
+    dplyr::select(wellID, value, wellType)
+  innerWell <- dplyr::filter(plateData, !wellID %in% edgeWell$wellID)
+
+  if (onlyNeg) {
+    # only use negative control wells, check whether they are present in edge
+    # and innel wells
+    if (!"neg" %in% edgeWell$wellType)
+      stop("No negative control wells found on the edge.")
+    if (!"neg" %in% innerWell$wellType)
+      stop("No negative control wells found on the inner plate")
+    edgeFac <-
+      median(edgeWell$value, na.rm=TRUE) / median(innerWell$value, na.rm = TRUE)
+  } else {
+    edgeFac <-
+      median(edgeWell$value, na.rm=TRUE) / median(innerWell$value, na.rm = TRUE)
+  }
+
+  edgeFac
+}
+
+# Determin the type of input vector
+detectClass <- function(x) {
+  # change potential NA records to NA
+  x[x %in% c("", "NA")] <- NA
+  x <- na.omit(x)
+  nx <- length(unique(x))
+
+  if (nx <= 1) {
+    return("nd")
+  } else if (nx == 2) {
+    return("binary")
+  } else {
+    x.num <- as.numeric(as.character(x))
+    if (all(!is.na(x.num))) {
+      return("continuous")
+    } else {
+      if (nx < length(x)) {
+        return("categorical")
+      } else return("nd")
+    }
+  }
+}
+
+####----Summarise_Screen_Functions--####
 
 # Calculate one DSS variant. This is used by the public calcDSS wrapper below.
 calcDSS_single <- function(value, conc, dssType = "DSS2", threshold = 10) {
@@ -501,7 +466,38 @@ calcDSS <- function(value, conc, dssType = "DSS2", threshold = 10) {
   }
 }
 
-###----readScreen_Functions-----### 
+# Function to calculate AUC using linear-log (on X) trapezoidal method
+# Use summariseScreen() to calculate AUC.
+calcAUC <- function(value, conc, viabCut = NULL) {
+  
+  valueConc <- data.frame(viab = value, conc = conc) %>%
+    dplyr::filter(!is.na(conc) & conc > 0) %>%
+    dplyr::group_by(conc) %>%
+    dplyr::summarise(viab = mean(viab)) %>%
+    dplyr::ungroup() %>%
+    dplyr::arrange(conc)
+
+  # censor the values based on viability cut-off
+  if (!is.null(viabCut)) {
+    valueConc <- dplyr::mutate(valueConc, viab = viab + 1 - viabCut) %>%
+      dplyr::mutate(viab = ifelse(viab > 1, 1, viab))
+  }
+
+  if (nrow(valueConc) %in% c(0, 1)) {
+    return(mean(valueConc$viab, na.rm = TRUE))
+  } else {
+    areaTotal <- 0
+    for (i in seq(nrow(valueConc) - 1)) {
+      areaEach  <- (valueConc$viab[i] + valueConc$viab[i + 1]) *
+        log(valueConc$conc[i + 1]/valueConc$conc[i]) * 0.5
+      areaTotal <- areaTotal + areaEach
+    }
+    aucRatio <- areaTotal / log(valueConc[nrow(valueConc), ]$conc / valueConc[1, ]$conc)
+    return(aucRatio)
+  }
+}
+
+####----readScreen_Functions-----#### 
 #Read plate annotation file, check present columns. 
 readPlateAnno <- function(filePath, deciMark){
   sampleAnno <- read_delim(
@@ -737,3 +733,58 @@ joinWellAnno <- function(screenData, wellData, negCtrl, posCtrl){
    return(screenData)
 }
 
+####----Normalization_Functions-----####
+
+findDiscardLayers <- function(dataframe, nLayers) {
+  #Size of the plate
+  nCol <- length(unique(dataframe$colID))
+  nRow <- length(unique(dataframe$rowID))
+
+  #Generate the edges based on the number of layers specified
+  edgeCol <- genColIDs(nCol)[c(
+    seq(1, nLayers), 
+    seq(nCol - nLayers + 1, nCol))]
+  edgeRow <- genRowIDs(nRow)[c(
+    seq(1, nLayers),
+    seq(nRow - nLayers + 1, nRow))]
+
+  list(
+    edgeCol = edgeCol,
+    edgeRow = edgeRow
+  )
+}
+
+# Function to check if controls still exist after discarding 
+# edge layers. If not, will raise an error and return FALSE.
+getControlMedians <- function(dataframe, disCol, disRow, method){
+  #filter the wells
+  filteredData <- dplyr::filter(
+    dataframe,
+    !colID %in% disCol & !rowID %in% disRow
+  )
+  #Find negative values
+  negValues <- filteredData[filteredData$wellType == "neg", ]$value
+  posValues <- filteredData[filteredData$wellType == "pos", ]$value  
+
+  if (length(negValues) == 0) {
+    stop("No negative control wells remain after discarding edge layers.")
+  } else {
+    medianNeg <- median(negValues, na.rm = TRUE)
+  }
+
+  if (method == "NPI") {
+    if (length(posValues) == 0) {
+      stop("No positive control wells remain after discarding edge layers.")
+    } else {
+      medianPos <- median(posValues, na.rm = TRUE)
+    }
+  } else {
+    medianPos <- NA
+  }
+
+  list(
+    medNeg = medianNeg,
+    medPos = medianPos
+  )
+  
+}

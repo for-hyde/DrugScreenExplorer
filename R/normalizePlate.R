@@ -1,6 +1,6 @@
 #' Per-plate normalization
 #'
-#' This function calculates the percent inhibition or normalized viability values
+#' This function calculates the normalized viability values
 #' for each plate based on the control wells on the same plate.
 #'
 #' @param screenData a data frame that contains the output from the
@@ -14,7 +14,7 @@
 #' basis.
 #' NPI measures the extent to which the signal of interest is diminished
 #' compared to a positive control:
-#' \eqn{x_{normalized} = (x - Median(x_{pos}))/(Median(x_{neg}) - Median(x_{pos}))}.
+#' \eqn{x_{normalized} = (x - Median(x_{pos}))/(Median(x_{neg}) - Median(x_{pos}))}. # nolint
 #' The default value is 'negatives'.
 #' @param discardLayer an integer value. To avoid the impact of incubation
 #' effect on the negative controls,
@@ -24,7 +24,7 @@
 #' @param bySample a logical value, indicates whether normalized the viability
 #' by sample rather than by plate.
 #' This is for the situation that multiple samples are on the same plate.
-#' @import dplyr tibble
+#' @import dplyr tibble checkmate
 #' @export
 #' @return
 #' This function will add one column, \code{normVal}, which is the normalized
@@ -59,99 +59,42 @@ normalizePlate <- function(screenData,
                            discardLayer = 0L,
                            bySample = FALSE) {
 
-  #- argument checking
-  method <- match.arg(method, c("negatives", "NPI"))
-  if (length(discardLayer) != 1 || !is.numeric(discardLayer) ||
-      !is.finite(discardLayer) || discardLayer %% 1 != 0) {
-    stop("discardLayer must be one non-negative integer")
-  }
+  # Input validation
+  checkmate::assert_data_frame(screenData)
+  checkmate::assert_names(names(screenData),
+                          must.include = c("sampleID",
+                                           "fileName", "wellType", "value",
+                                           "rowID", "colID"))
+  checkmate::assert_choice(method, c("negatives", "NPI"))
+  checkmate::assert_integerish(discardLayer, lower = 0, len = 1)
+  checkmate::assert_logical(bySample, len = 1)
 
-  if (!is.logical(bySample)) {
-    stop("bySample must be a logical value, either TRUE or FALSE")
-  }
-  if (!all(c("sampleID", "fileName", "wellType", "value") %in%
-           colnames(screenData))) {
-    stop("screenData must contain the following columns: sampleID, fileName,
-         wellType, and value")
-  }
-  if (discardLayer < 0) {
-    stop("discardLayer must be a non-negative integer")
-  }
-
+  # If discard layer is greater than 0, generate a list of wellIDs
+  # to ignore when summarizing control measurements
   if (discardLayer > 0) {
-
-    # generate a list of wellIDs that need to be ignored when summarizing
-    # controls measurements
-
-    nCol <- length(unique(screenData$colID))
-    nRow <- length(unique(screenData$rowID))
-
-    #- A restriction on discardLayer, in case all negatives are removed
-    if (discardLayer > pmin(nCol, nRow) / 2)
-      stop("discardLayer is too large.
-           All negatives will be removed with discardLayer = ", discardLayer)
-
-    disCol <- genColIDs(nCol)[c(seq(1, discardLayer),
-                                seq(nCol - discardLayer + 1, nCol))]
-    disRow <- genRowIDs(nRow)[c(seq(1, discardLayer),
-                                seq(nRow - discardLayer + 1, nRow))]
+    discardList <- findDiscardLayers(screenData, discardLayer)
+    disCol <- discardList$colID
+    disRow <- discardList$rowID
   } else {
     disCol <- c()
     disRow <- c()
   }
+  # group by sampleID or fileName, then apply the normalization function to each group
+  split_col <- if (bySample) screenData$sampleID else screenData$fileName
 
-  #  normOnePlate, function to normalize the values with two methods:
-  #  "negatives" and "NPI".
-  #  the name may be misleading
-
-  normOnePlate <- function(onePlate) {
-
-    negMed <- median(dplyr::filter(
-      onePlate, wellType == "neg", !colID %in% disCol, !rowID %in%
-        disRow)$value, na.rm = TRUE)
-    posMed <- median(dplyr::filter(
-      onePlate, wellType == "pos", !colID %in% disCol, !rowID %in%
-        disRow)$value, na.rm = TRUE)
-
+  split_list <- split(screenData, split_col)
+  results_list <- lapply(split_list, function(plate) {
+    medians <- getControlMedians(plate, disCol, disRow, method)
     if (method == "negatives") {
-      if (is.na(negMed)) {
-        stop(
-          "No negative control wells remain for plate '", unique(onePlate$fileName),
-          "' after discarding ", discardLayer,
-          " layer(s). Check the selected negative controls or reduce discardLayer."
-        )
-      } else {
-        onePlate <- dplyr::mutate(onePlate, normVal = value / negMed)
-      }
-    } else if (method == "NPI") {
-      if (is.na(negMed) | is.na(posMed)) {
-        stop(
-          "No negative and positive control wells remain for plate '",
-          unique(onePlate$fileName), "' after discarding ", discardLayer,
-          " layer(s). Check both control selections or reduce discardLayer."
-        )
-      } else {
-        onePlate <- dplyr::mutate(onePlate,
-                                  normVal = (value - posMed)/(negMed - posMed))
-      }
-    } else stop("Please choose a normalization method,
-                either \"negatives\" or \"NPI\"")
-    return(onePlate)
-  }
-
-  if (bySample) {
-
-    #? if possible, one plate has several samples: whether the neg will be shared.
-    screenData <- group_by(screenData, sampleID) %>%
-      do(normOnePlate(.)) %>%
-      ungroup()
-  } else {
-    screenData <- group_by(screenData, fileName) %>%
-      do(normOnePlate(.)) %>%
-      ungroup()
-  }
-  return(screenData)
+      plate <- plate |>
+        dplyr::mutate(normVal = value / medians$medNeg)
+    } else {
+      plate <- plate |>
+        dplyr::mutate(normVal = (value - medians$medPos)/(medians$medNeg - medians$medPos))
+    }
+    plate
+  })
+  dplyr::bind_rows(results_list)
+  # extract median values for controls, ensure discarded edges do 
+  # not remove all values.
 }
-
-
-

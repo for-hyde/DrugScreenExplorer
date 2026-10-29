@@ -23,7 +23,7 @@ testScreenManualload <- readScreen(
 )
 
 test_that("Manual imput will result in identical dataframe",
-          expect_equal(testScreenManualload, screenData_manual))
+          expect_equal(testScreenManualload, screenData_auto))
 
 testScreenNorm <- readScreen(
   rawDir = rawDir,
