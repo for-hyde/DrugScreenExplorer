@@ -105,12 +105,12 @@ seleDrugUI <- function(id) {
                  textOutput("readScreen_message"),
                  uiOutput("sampleInfo_ui"),
                  uiOutput("normTable_ui"),
-                 uiOutput("authorName"),
+                 uiOutput("authorName_ui"),
                  uiOutput("reportDownload") #Generate report
 
 
-               )
-             )
+        )
+      )
     ),
 
     # Plate plot

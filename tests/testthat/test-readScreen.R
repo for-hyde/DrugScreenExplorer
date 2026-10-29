@@ -1,7 +1,7 @@
 load("testData/expectedOutput/readScreenData.RData")
-rawDir = "testData/rawData/"
-plateAnno = "testData/plateAnno/plateAnno.tsv"
-wellAnno = "testData/wellAnno/wellAnno.tsv"
+rawDir <- "testData/rawData/"
+plateAnno <- "testData/plateAnno/plateAnno.tsv"
+wellAnno <- "testData/wellAnno/wellAnno.tsv"
 
 testScreenAutoload <- readScreen(rawDir = rawDir,
                                  plateAnnotationFile = plateAnno,
@@ -72,13 +72,15 @@ test_that("readScreen returns the documented tabular structure", {
                     "fileName", "wellType") %in% names(testScreenAutoload)))
 })
 
-test_that("normalization adds numeric normalized values without changing dimensions", {
-  expect_s3_class(testScreenNorm, "data.frame")
-  expect_equal(dim(testScreenNorm), dim(screenData_norm))
-  expect_true("normVal" %in% names(testScreenNorm))
-  expect_type(testScreenNorm$normVal, "double")
-  expect_equal(testScreenNorm$normVal, screenData_norm$normVal, tolerance = 1e-12)
-})
+test_that("normalization adds normalized values without changing dimensions",
+          {
+            expect_s3_class(testScreenNorm, "data.frame")
+            expect_equal(dim(testScreenNorm), dim(screenData_norm))
+            expect_true("normVal" %in% names(testScreenNorm))
+            expect_type(testScreenNorm$normVal, "double")
+            expect_equal(testScreenNorm$normVal, screenData_norm$normVal, 
+                         tolerance = 1e-12)
+          })
 
 test_that("boundary options are accepted", {
   expect_silent(

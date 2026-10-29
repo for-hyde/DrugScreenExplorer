@@ -1,19 +1,16 @@
 ---
 params:
+  set_date: "2026-10-28"
   set_title: "new title"
   set_author: "new author"
   showCode: FALSE
   ifPlatePlot: TRUE
 title: "`r params$set_title`"
 author: "`r params$set_author`"
-date: "`r doc_date()`"
+date: "`r params$set_date`"
 output:
   BiocStyle::html_document:
     toc_float: true
-vignette: >
-  %\VignetteIndexEntry{`r params$set_title`}
-  %\VignetteEngine{knitr::rmarkdown}
-  %\VignetteEncoding{UTF-8}
 ---
 
 # Dataset summary
