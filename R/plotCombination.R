@@ -257,7 +257,3 @@ plotCombination <- function(obj, whichIndex = NULL, drug1 = NULL, drug2 = NULL) 
   return(p)
 
 }
-
-
-
-

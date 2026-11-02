@@ -85,6 +85,3 @@ plotTypeDist <- function(screenData,
 
   }
 }
-
-
-

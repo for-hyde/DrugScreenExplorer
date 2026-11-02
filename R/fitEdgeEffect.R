@@ -47,12 +47,14 @@ fitEdgeEffect <- function(screenData,
                           useLowConcentrations = 0L,
                           span = 1,
                           exclude = c()) {
-
-  # a function to calculate position correction factor for each plate
-  # check
-  if (!is.data.frame(screenData)){
-    stop("screenData should be a data frame")
-  }
+  #Input validation
+  checkmate::assert_data_frame(screenData, .var.name = "screenData")
+  checkmate::assert_choice(method, choices = c("loess", "sigmoid"),
+                           .var.name = "method")
+  checkmate::assert_logical(useNeg, len = 1, .var.name = "useNeg")
+  checkmate::assert_integerish(useLowConcentrations, len = 1,
+                              lower = 0, .var.name = "useLowConcentrations")
+  checkmate::assert_numeric(span, len = 1, lower = 0, .var.name = "span")
 
   # check if normalized values is present
   if (!"normVal" %in% colnames(screenData)) {

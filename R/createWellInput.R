@@ -54,8 +54,3 @@ createWellInput <- function(file, colNum, rowNum,
   write_delim(outTable, file = file, delim = "\t")
 
 }
-
-
-
-
-

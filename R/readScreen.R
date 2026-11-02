@@ -11,24 +11,22 @@
 #' the plate annotation file.
 #' @param wellAnnotationFile a character string specifying the location of the
 #' well annotation file.
-#' @param rowRange either an integer vector with length of two or an integer
-#' value.
-#' If it's an vector, it should specify the range of the lines that contain
-#' the actual values.
-#' If it's an integer values, only the starting line is indicated and the end
-#' line is the end of the file.
-#' @param colRange either an integer vector with length of two or an integer
-#' value.
-#' If it's an vector, it should specify the range of the columns (separated by
-#' delimiters) that contain the actual values.
-#' If it's an integer, only the starting column is indicated and the end column
-#' is the last column in the file.
+#' @param rowRange a numeric vector of length two, specifying the range of the
+#' rows (separated by delimiters) that contain the actual values in the raw data
+#' files. The default value is NULL, which means the function will automatically
+#' detect the row range. If the user wants to manually set the row range, they
+#' can provide a numeric vector of length two, indicating the starting and ending
+#' rows of the actual values.
+#' @param colRange a numeric vector of length one or two, specifying the range
+#' of the columns (separated by delimiters) that contain the actual values in
+#' the raw data files. The default value is NULL, which means the function will
+#' automatically detect the column range.
 #' @param sep a character string specifying the delimiters for extracting values
-#' in the text file.
-#' A regular expression can be used. The default value is a semicolon (";").
+#' in the text file. If automatic parsing is used, the function will automatically
+#' detect the delimiters. The default value is a semicolon (";").
 #' @param setManualRanges a logical value, whether to manually set the row and
 #' column ranges for extracting the actual values from the raw data files.
-#' The default value is \code{FALSE}. If \code{TRUE}, the user MUST provide the 
+#' The default value is \code{FALSE}. If \code{TRUE}, the user MUST provide the
 #' row and column ranges using the \code{rowRange} and \code{colRange} arguments.
 #' @param negWell a character vector or a character string of well IDs or drug
 #' names (if the 'name' column is present in well annotation), which specifies
@@ -47,16 +45,16 @@
 #' measurement on a plate and the median measurement of the positive controls
 #' on that plate by the difference between the median measurement of negative
 #' controls and positive controls on that well. The default value is 'negatives'.
-#' @param discardLayer an integer values. To avoid the impact of incubation
+#' @param discardLayer an integer value. To avoid the impact of incubation
 #' effect on the negative controls, a certain number of the exterior wells on
 #' the plate can be ignored when summarising the measurement of controls.
-#' 0 means do not discard any control wells. A value above zero indicates
-#' the \code{N} layers of wells on the edge should be discarded.
+#' 0 means do not discard any wells. A value above zero indicates
+#' \code{N} layers of wells from the edge should be discarded.
 #' @param commaAsDecimal a logical value, whether commas is used as decimal
 #' in the input data. Default is FALSE.
 #' @param allowNA a logical value, whether to allow NA (missing or empty) values
 #' in the input data. Default is FALSE.
-#' @param bySample a logic value, indicates whether to normalize the viability
+#' @param bySample a logical value, indicates whether to normalize the viability
 #' by sample rather than by plate. This is for situations where multiple samples
 #' are on the same plate.
 #' @import tibble dplyr readr stringr tools

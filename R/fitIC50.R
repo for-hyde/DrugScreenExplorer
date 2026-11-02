@@ -64,7 +64,3 @@ fitIC50 <- function(formula, data = NULL, weights = NULL, logDose = NULL, ...) {
   class(newModel) <- "fitIC50"
   return(newModel)
 }
-
-
-
-

@@ -4,10 +4,11 @@
 #' @description
 #' This function prepares the data used in the Shiny Application. It gathers raw
 #' data files, plate annotation, and well annotation files, organizes them into
-#' a specific directory structure within a temporary location, and then compresses
-#' this structure into a zip archive.
+#' a specific directory structure within a temporary location, and then
+#' compresses this structure into a zip archive.
 #'
-#' @param rawDir a character string specifying the location of the raw data folder.
+#' @param rawDir a character string specifying the location of the raw data
+#' folder.
 #' @param plateAnnotationFile a character string specifying the location of the
 #' plate annotation file.
 #' @param wellAnnotationFile a character string specifying the location of the
@@ -42,6 +43,14 @@ createShinyData <- function(rawDir,
                             wellAnnotationFile,
                             dir = ".",
                             filename = "ShinyData") {
+    # input validation
+    checkmate::assert_directory(rawDir, access = "r", .var.name = "rawDir")
+    checkmate::assert_file_exists(plateAnnotationFile, access = "r",
+                                  .var.name = "plateAnnotationFile")
+    checkmate::assert_file_exists(wellAnnotationFile, access = "r",
+                                  .var.name = "wellAnnotationFile")
+    checkmate::assert_directory(dir, access = "w", .var.name = "dir")
+    checkmate::assert_character(filename, len = 1, .var.name = "filename")
     
     temp <- tempdir()
     
@@ -109,10 +118,3 @@ createShinyData <- function(rawDir,
     unlink(file.path(temp, "rawData/"), recursive = TRUE)
     
 }
-
-
-
-
-
-
-

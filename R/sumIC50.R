@@ -66,6 +66,3 @@ sumIC50 <- function(formula,
 
   return(res)
 }
-
-
-

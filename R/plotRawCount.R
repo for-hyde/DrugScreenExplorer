@@ -50,6 +50,3 @@ plotRawCount <- function(screenData, topN = NULL, ifLog10 = FALSE) {
     ylab(ifelse(ifLog10, "log10 (raw counts)", "raw counts"))
 
 }
-
-
-

@@ -8,7 +8,8 @@
 #' long as it follows the format requirement. More information is available in
 #' the package vignette.
 #'
-#' @param rawDir a character string specifying the directory of the raw data folder
+#' @param rawDir a character string specifying the directory of the raw
+#' data folder
 #' @param file the output file name and path for the plate annotation file
 #' @param entries a vector of character strings to use as the column names in
 #' the plate annotation file (optional)
@@ -16,8 +17,8 @@
 #' batches are stored in different sub-folders.
 #' The default value is \code{FALSE}. If \code{TRUE}, the folder names will be
 #' used as batch identifiers automatically.
-#' @return This function creates a tab-separated values (tsv) file in the working
-#' directory.
+#' @return This function creates a tab-separated values (tsv) file in the
+#' working directory.
 #' @import tibble dplyr readr
 #' @export
 #' @examples
@@ -32,13 +33,10 @@ createPlateInput <- function(rawDir,
                              entries = c(),
                              batchAsFolder = FALSE) {
 
-  # Checks
-  if (!dir.exists(rawDir)) {
-    stop("The specified rawDir does not exist.")
-  }
-  if (!is.character(file) || length(file) != 1) {
-    stop("The 'file' parameter must be a single character string.")
-  }
+  # input validation
+  checkmate::assert_directory(rawDir, access = "r", .var.name = "rawDir")
+  checkmate::assert_character(file, len = 1, .var.name = "file")
+  checkmate::assert_logical(batchAsFolder, .var.name = "batchAsFolder")
 
   if (!batchAsFolder) {
     allFiles <- list.files(path = rawDir, recursive = TRUE)
@@ -75,13 +73,3 @@ createPlateInput <- function(rawDir,
   })
 
 }
-
-
-
-
-
-
-
-
-
-

@@ -60,12 +60,14 @@
 #' 
 #' If \code{method = 'DSS'}
 #' 
-#' \item{DSS}{the drug sensitivity score calculated based on the viability and concentration values.
-#' The DSS1 score is a normalized version of the AUC that will only consider the drug effect above a 
-#' a user-defined threshold. The DSS score is calculated using the \code{calcDSS()} function. The DSS2
-#' score is further normalized by comparing the DSS1 score to the maximum possible AUC for the given 
-#' concentration range. The DSS3 score is a modified version of the DSS2 score that takes into 
-#' account the slope of the dose-response curve.}
+#' \item{DSS}{the drug sensitivity score calculated based on the viability
+#' and concentration values. The DSS1 score is a normalized version of the
+#' AUC that will only consider the drug effect above a user-defined threshold.
+#' The DSS score is calculated using the \code{calcDSS()} function. The DSS2
+#' score is further normalized by comparing the DSS1 score to the maximum
+#' possible AUC for the given concentration range. The DSS3 score is a
+#' modified version of the DSS2 score that takes into account the slope
+#' of the dose-response curve.}
 #' 
 #'
 #'

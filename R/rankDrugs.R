@@ -1,7 +1,6 @@
 #' Rank drugs against a selected sample and group summary
 #'
-#' This function reproduces the logic used in the Shiny server for the
-#' "Drug Effect Ranking" panel. It compares a selected sample's drug score to
+#' This function compares a selected sample's drug score to
 #' the summary score for a chosen group and returns the ranked drugs, along with
 #' a waterfall-style graph.
 #'
@@ -9,7 +8,7 @@
 #'   the columns `sampleID`, `drug`, `wellType`, and a score column such as
 #'   `DSS`, `AUC`, `IC50`, `meanViab`, or their corrected variants.
 #' @param score Character string naming the score to rank by.
-#' @param sampleID Character string identifying the sample to compare against.
+#' @param sampleID Character string identifying the sample used for comparison.
 #' @param group Character string naming the grouping variable to compare within.
 #'   Use `"All samples"` for global comparison.
 #' @param summary Character string specifying the summary statistic used to
@@ -32,10 +31,14 @@ rankDrugs <- function(screenData,
                       useCorrected = FALSE,
                       topN = 30L,
                       plot = TRUE) {
-
-  if (!is.data.frame(screenData)) {
-    stop("screenData must be a data frame.")
-  }
+  checkmate::assert_data_frame(screenData, .var.name = "screenData")
+  checkmate::assert_choice(score, choices = c("DSS", "AUC", "IC50", "meanViab"),
+                           .var.name = "score")
+  checkmate::assert_choice(summary, choices = c("mean", "median"),
+                           .var.name = "summary")
+  checkmate::assert_flag(useCorrected, .var.name = "useCorrected")
+  checkmate::assert_integerish(topN, len = 1, lower = 1, .var.name = "topN")
+  checkmate::assert_flag(plot, .var.name = "plot")
 
   requiredCols <- c("sampleID", "drug", "wellType")
   if (!all(requiredCols %in% colnames(screenData))) {
