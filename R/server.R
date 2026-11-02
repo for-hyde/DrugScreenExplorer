@@ -262,7 +262,7 @@
     })
 
     # # DT table for showing the sample annotations and filtering
-    output$sampleInfo <- DT::renderDataTable({
+    output$sampleInfo <- DT::renderDT({
       info <- infoTableRaw()
 
       req(info)
@@ -433,7 +433,7 @@
     })
 
     # # DT table for showing the sample annotations and filtering
-    output$normTable <- DT::renderDataTable({
+    output$normTable <- DT::renderDT({
 
       req(normData())
       normData_new <- mutate_if(normData(), is.character, as.factor) %>%
@@ -864,7 +864,7 @@
     })
 
     ## a table for selected plate and well information
-    output$infoTab <- renderDataTable({
+    output$infoTab <- DT::renderDT({
 
       s <- event_data("plotly_click")
       # Add potential interesting columns that may or may not exist
@@ -1331,103 +1331,111 @@
           tabTSNE()$message
     })
 
-    # prepare the clustering plot on panel 3
-    plotCluster <- eventReactive(input$doPlot, {
+# Single reactive expression that handles ALL plot types and returns a ggplot
+plotAll <- eventReactive(input$doPlot, {
+  viabData <- filteredData()
+  viabMat <- plotMat()$viabMat
+  idMap <- plotMat()$idMap
 
-      # plotCluster <- reactive({
-      viabData <- filteredData()
-      viabMat <- plotMat()$viabMat
-      idMap <- plotMat()$idMap
+  # Annotation preparation
+  annoCol <- tibble(sampleID_new = colnames(viabMat),
+                    sampleID = idMap[match(colnames(viabMat), idMap$new), ]$origin) %>%
+    left_join(select(viabData, sampleID, all_of(input$seleColor1)), by = "sampleID") %>%
+    select(-sampleID) %>%
+    distinct(sampleID_new, .keep_all = TRUE) %>%
+    as.data.frame() %>%
+    column_to_rownames("sampleID_new")
 
-      # why play with the sampleID
-      annoCol <- tibble(sampleID_new = colnames(viabMat),
-                        sampleID = idMap[match(colnames(viabMat), idMap$new), ]$origin) %>%
-        left_join(select(viabData, sampleID, input$seleColor1), by = "sampleID") %>%
-        select(-sampleID) %>%
-        distinct(sampleID_new, .keep_all = TRUE) %>%
-        as.data.frame() %>%
-        column_to_rownames("sampleID_new")
+  colType <- colClass()[input$seleColor1]
 
-      # heatmap in ggplot function
+  # --- 1. HEATMAP ---
+  if (input$plotType == "Heatmap") {
+    hc <- hclust(as.dist(1 - cor(viabMat)), method = "ward.D2")
+    hr <- hclust(as.dist(1 - cor(t(viabMat))), method = "ward.D2")
 
+    if (input$ifRowNorm == "Row") {
+      viabMat <- t(scale(t(viabMat)))
+    } else if (input$ifRowNorm == "Column") {
+      viabMat <- scale(viabMat)
+    }
 
-      if (input$plotType == "Heatmap") {
+    # Reorder matrix rows and columns based on hierarchical clustering
+    viabMat_ordered <- viabMat[hr$order, hc$order]
 
-        # perform hierachical clustering on columns
-        hc <- hclust(as.dist(1 - cor(viabMat)), method = "ward.D2")
-        hr <- hclust(as.dist(1 - cor(t(viabMat))), method = "ward.D2")
-        # hc <- hclust(dist(t(viabMat), method = 'euclidean'), method = 'ward.D2')
+    # Convert to long format for ggplot geom_tile
+    plotTab <- as.data.frame(viabMat_ordered) %>%
+      rownames_to_column("RowVar") %>%
+      pivot_longer(-RowVar, names_to = "ColVar", values_to = "Value")
 
-        # perfrom hierachical clustering on rows, normalized or not
-        if (input$ifRowNorm == "Row") {
-          viabMat <- t(scale(t(viabMat)))
-        } else if (input$ifRowNorm == "Column") {
-          viabMat <- scale(viabMat)
-        }
+    plotTab$RowVar <- factor(plotTab$RowVar, levels = rev(rownames(viabMat_ordered)))
+    plotTab$ColVar <- factor(plotTab$ColVar, levels = colnames(viabMat_ordered))
 
-        annoCol <- annoCol[, colSums(!is.na(annoCol)) != 0, drop = FALSE]
+    g <- ggplot(plotTab, aes(x = ColVar, y = RowVar, fill = Value)) +
+      geom_tile() +
+      scale_fill_gradientn(colors = RColorBrewer::brewer.pal(n = 7, name = "RdYlBu")) +
+      theme_minimal() +
+      theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5)) +
+      labs(x = "Samples", y = "Features / Drugs", fill = "Value")
 
-        if (ncol(annoCol) != 0) {
-          g <-
-            pheatmap(viabMat,
-                     color = colorRampPalette(brewer.pal(n = 7, name = "RdYlBu"))(100),
-                     scale = "none",
-                     annotation_col = annoCol,
-                     cluster_rows = hr,
-                     cluster_cols = hc,
-                     silent = TRUE)
-        } else {
-          # if nothing to annotate
-          g <-
-            pheatmap(viabMat,
-                     color = colorRampPalette(brewer.pal(n = 7, name = "RdYlBu"))(100),
-                     scale = "none",
-                     cluster_rows = hr,
-                     cluster_cols = hc,
-                     silent = TRUE)
-        }
+  # --- 2. DRUG-DRUG CORRELATION ---
+  } else if (input$plotType == "Drug-drug correlation") {
+    corMat <- cor(t(viabMat), method = "spearman")
+    hc_cor <- hclust(as.dist(1 - corMat), method = "ward.D2")
+    corMat_ordered <- corMat[hc_cor$order, hc_cor$order]
 
-      } else if (input$plotType == "Drug-drug correlation") {
+    plotTab <- as.data.frame(corMat_ordered) %>%
+      rownames_to_column("RowVar") %>%
+      pivot_longer(-RowVar, names_to = "ColVar", values_to = "Value")
 
-        g <- pheatmap(cor(t(viabMat), method = "spearman"), silent = TRUE)
+    plotTab$RowVar <- factor(plotTab$RowVar, levels = rev(rownames(corMat_ordered)))
+    plotTab$ColVar <- factor(plotTab$ColVar, levels = colnames(corMat_ordered))
 
-      } else {
+    g <- ggplot(plotTab, aes(x = ColVar, y = RowVar, fill = Value)) +
+      geom_tile() +
+      scale_fill_gradient2(low = "blue", mid = "white", high = "red", midpoint = 0) +
+      theme_minimal() +
+      theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5)) +
+      labs(x = "Drugs", y = "Drugs", fill = "Spearman Cor")
 
-        colType <- colClass()[input$seleColor1]
-        if (input$plotType == "PCA") {
-          pcaTab <- cbind(tabPCA()$pcaTab, annoCol)
-          varExp <- tabPCA()$varExp
-          pcaTab$sampleID <- rownames(pcaTab)
+  # --- 3. PCA ---
+  } else if (input$plotType == "PCA") {
+    pcaTab <- cbind(tabPCA()$pcaTab, annoCol)
+    varExp <- tabPCA()$varExp
+    pcaTab$sampleID <- rownames(pcaTab)
 
-          if (colType != "continuous")
-            pcaTab[[input$seleColor1]] <- as.factor(pcaTab[[input$seleColor1]])
+    if (colType != "continuous")
+      pcaTab[[input$seleColor1]] <- as.factor(pcaTab[[input$seleColor1]])
 
-          g <- ggplot(pcaTab, aes_string(x = "PC1", y = "PC2", color = input$seleColor1)) +
-            geom_point() +
-            theme_bw() +
-            xlab(sprintf("PC1 (%2.1f%%)", varExp[1])) +
-            ylab(sprintf("PC2 (%2.1f%%)", varExp[2]))
+    g <- ggplot(pcaTab, aes(x = PC1, y = PC2, color = .data[[input$seleColor1]])) +
+      geom_point(size = 3) +
+      theme_bw() +
+      xlab(sprintf("PC1 (%2.1f%%)", varExp[1])) +
+      ylab(sprintf("PC2 (%2.1f%%)", varExp[2]))
 
-        } else if (input$plotType == "t-SNE") {
-          plotTab <- cbind(tabTSNE(), annoCol)
-          plotTab$sampleID <- rownames(plotTab)
-          if (colType != "continuous")
-            plotTab[[input$seleColor1]] <- as.factor(plotTab[[input$seleColor1]])
+  # --- 4. T-SNE ---
+  } else if (input$plotType == "t-SNE") {
+    plotTab <- cbind(tabTSNE(), annoCol)
+    plotTab$sampleID <- rownames(plotTab)
+    if (colType != "continuous")
+      plotTab[[input$seleColor1]] <- as.factor(plotTab[[input$seleColor1]])
 
-          g <- ggplot(plotTab, aes_string(x = "x", y = "y", color = input$seleColor1)) + geom_point() + theme_bw()
-        }
+    g <- ggplot(plotTab, aes(x = x, y = y, color = .data[[input$seleColor1]])) + 
+      geom_point(size = 3) + 
+      theme_bw()
+  }
 
-        if (colType == "continuous") {
-          g <- g + scale_color_gradient(low = "blue", high = "red")
-        }
-      }
-      return(g)
-    })
+  # Add continuous color gradient styling if applicable for scatter plots
+  if (input$plotType %in% c("PCA", "t-SNE") && colType == "continuous") {
+    g <- g + scale_color_gradient(low = "blue", high = "red")
+  }
 
-    output$clusterPlot <- renderPlot({
-      plotCluster()
-    })
+  return(g)
+})
 
+# Single renderPlotly handles everything smoothly
+output$clusterPlot <- renderPlotly({
+  ggplotly(plotAll())
+})
     # download the cluster plot
     # output$download <- downloadHandler(
     #   filename = paste0(input$plotType, ".pdf", sep = ""),
@@ -1547,8 +1555,7 @@
 
     # reative object to prepare viability table for testing
     testInput <- reactive({
-
-
+      # If a selection factor is chosen, subset the data accordingly
       if (!is.null(input$seleFactor)) {
         # subset the screen data according to the selection
         if (is.null(input$selectGroup2) || input$selectGroup2 == "All samples") {
@@ -1711,7 +1718,7 @@
     })
 
     # render the output table
-    output$testRes <- renderDataTable({
+    output$testRes <- DT::renderDT({
 
       if (!is.null(testRes())) {
         testRes() %>%
@@ -2005,7 +2012,7 @@
       return(sumScreenCombine)
     })
 
-    output$sumCombineTable <- DT::renderDataTable({
+    output$sumCombineTable <- DT::renderDT({
       req(sumCombTab())
       DT::datatable(sumCombTab(),
                     filter = "top",
@@ -2366,7 +2373,7 @@
       ggplotly(p) %>% config(displayModeBar = FALSE)
     })
 
-    output$rankTable <- DT::renderDataTable({
+    output$rankTable <- DT::renderDT({
       req(rankData())
       rankData() %>%
         select(rank, drug, sampleScore, groupScore, diff) %>%
