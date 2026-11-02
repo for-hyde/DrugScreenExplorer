@@ -113,21 +113,3 @@ fitEdgeEffect <- function(screenData,
   return(screenData)
 
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

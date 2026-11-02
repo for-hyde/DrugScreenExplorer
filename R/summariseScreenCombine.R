@@ -243,8 +243,3 @@ summariseScreenCombination <- function(screenData,
   return(screenData)
 
 }
-
-
-
-
-

@@ -41,10 +41,8 @@ createPlateInput <- function(rawDir,
   }
 
   if (!batchAsFolder) {
-
     allFiles <- list.files(path = rawDir, recursive = TRUE)
     outTable <- tibble::tibble(fileName = basename(allFiles))
-
   } else {
     # raw data from different batches are stored in subfolders
     batches <- list.dirs(rawDir, full.names = FALSE)

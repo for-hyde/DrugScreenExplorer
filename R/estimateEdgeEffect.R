@@ -1,7 +1,8 @@
 #' Estimate edge effect intensity
 #'
 #' This function estimates the intensity of edge effect on each screen plate by
-#' comparing the median signal intensities on the edge to those on the inner plate.
+#' comparing the median signal intensities on the edge to those on the inner
+#' plate.
 #' The results will be shown as a bar plot with plate IDs as x-axis and edge
 #' effect intensities as y-axis.
 #'
@@ -94,9 +95,3 @@ estimateEdgeEffect <- function(screenData,
 
   screenData
 }
-
-
-
-
-
-
