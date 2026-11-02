@@ -1,8 +1,7 @@
 #- test list for plotPlate
 
 # load processed data
-
-test_that("plotPlate", {
+test_that("plotPlate returns plot objects", {
 
   data('screenData_normalized')
 
