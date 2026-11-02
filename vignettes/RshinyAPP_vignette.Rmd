@@ -106,7 +106,7 @@ With just a few clicks, this R Shiny app allows users to effortlessly:
 
 There are two ways to start the Shiny Application: 
 
-**1 Execute `*runShiny()*` function directly**
+**1 Execute `*buildApp()*` function directly**
 
 This approach requires organizing all input files - including well annotations, 
 plate annotations, and raw screening data - into structured folders with specific 
@@ -141,6 +141,13 @@ createShinyData(rawDir,
                 wellAnnotationFile,
                 dir = ".")
 ```
+
+Along withh building and running this application locally, the shiny application
+itself can also be set up to run on a server using ShinyProxy. This is ideal for
+clinics where repeated use of the tool may be necessary. For details on how to 
+create the server hosted application, see the *shinyProxy* folder on the github
+page and its accompanying *README.md* file. 
+
 
 **2 Run `*makeShiny()*` function** 
 

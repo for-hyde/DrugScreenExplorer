@@ -1,7 +1,7 @@
 ---
 title: "Introduction to DrugScreenExplorer"
 author: "Junyan Lu"
-date: "`r format(Sys.time(), '%B %d, %Y')`"
+date: "29-10-2026"
 output:
   html_document:
     fig_caption: true
@@ -68,12 +68,12 @@ quality control and visualizing of high-throughput drug sensitivity screen data.
 
 The package can achieve the following functions: 
 
-1, data preprocessing;
-2, check and report the quality of the screen data;     
-1, normalize the viability values;  
-2, detect and adjust the edge effects    
-3, summarize drug effects using several measures, e.g., IC50 and AUC  
-4, summarize the synergy or antagonism effects of two-drug combination     
+1, data preprocessing, including processing raw data and normalization of raw data;
+2, check and report the quality of the screen data    
+3, detect and adjust for plate and edge effects    
+4, summarize drug effects using several measures, e.g., IC50 and AUC
+5, explore these measures for association, 
+5, summarize the synergy or antagonism effects of two-drug combination     
 6, using a shiny app to explore process data interactively   
 
 *DrugScreenExplorer* was original designed to proceed the single drug screening, 
@@ -448,12 +448,13 @@ effect on the plate.
 
 *fitEdgeEffect* provides two methods for estimating the edge effects, namely 
 **loess** and **sigmoid**. The former utilizes the local regression, while the 
-latter uses a 2D-sigmoid model with well locations being the input values. 
+latter uses a 2D-sigmoid model with well locations being the input values. If 
+strong edge effects are observed or expected, the 2D-sigmoid model is better 
+at identifying these effects and correcting for them.
 
 Typically, we can firstly employ the **fitEdgeEffect()** function to assess the 
 edge effects. After that, **correctEdgeEffect()** can be used to adjusted the 
 inhibition values by removing the estimated edge effects. 
-
 
 ```{r}
 subScreen <- fitEdgeEffect(subScreen, method = "loess", useNeg = TRUE,
