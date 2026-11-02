@@ -357,108 +357,87 @@ detectClass <- function(x) {
 ####----Summarise_Screen_Functions--####
 
 # Calculate one DSS variant. This is used by the public calcDSS wrapper below.
-calcDSS_single <- function(value, conc, dssType = "DSS2", threshold = 10) {
-  
-  # 1. Clean, aggregate replicates, and sort 
-  valueConc <- data.frame(viab = value, conc = conc) %>%
-    dplyr::filter(!is.na(conc) & conc > 0) %>%
-    dplyr::group_by(conc) %>%
-    dplyr::summarise(viab = mean(viab)) %>%
-    dplyr::ungroup() %>%
-    dplyr::arrange(conc)
-
-  # 2. Convert viability (0 to 1 scale) to inhibition percentage (0 to 100 scale)
-  # Inhibition = (1 - viability) * 100
-  valueConc <- dplyr::mutate(valueConc, inhibition = (1 - viab) * 100)
-
-  # Determine number of points above inhibition threshold
-  num_points_above_threshold <- sum(valueConc$inhibition > threshold)
-  if (num_points_above_threshold < 2) {
-    return(NaN) # Not enough data points above threshold to calculate DSS
-  }
-
-  # Handle edge cases where there are insufficient points
-  if (nrow(valueConc) %in% c(0, 1)) {
-    return(NaN) # Not enough data points to calculate DSS
-  } else {
-    
-    # Total log10 concentration span (max(x) - min(x))
-    total_span <- log10(valueConc$conc[nrow(valueConc)] / valueConc$conc[1])
-    
-    # Effective log10 concentration span (max(x) - min(x)) for points above threshold
-    active_conc <- valueConc$conc[valueConc$inhibition > threshold]
-
-    # Check there are enough points for DSS2 and DSS3 calculations
-    if (length(active_conc) > 1) {
-      active_span <- log10(tail(active_conc, 1) / head(active_conc, 1))
-    } else {
-      #If length is 1 or 0, active_span is 0. For DSS2 and DSS3, this will result in NaN being returned.
-      if (dssType %in% c("DSS2", "DSS3")) {
-        return(NaN) # Not enough active points to calculate DSS2 or DSS3
-      } else {
-        active_span <- 0 # Not required for DSS1 calculation
-      }
-    }
-
-    # Calculate the inhibition AUC using a vectorized trapezoidal rule on the
-    # log10 concentration scale. This remains separate from calcAUC(), which
-    # integrates viability rather than inhibition.
-    log_conc <- log10(valueConc$conc)
-    auc <- sum(
-      (valueConc$inhibition[-nrow(valueConc)] +
-         valueConc$inhibition[-1]) *
-        diff(log_conc) / 2
-    )
-
-    # Calculate R_max 
-    R_max <- log10(max(valueConc$inhibition))
-
-    #DSS1 calculation
-    dss_score <- (auc - threshold * active_span) / ((100 - threshold) * total_span)
-    if (dssType == "DSS1") {
-      return(dss_score)
-    }
-    #DSS2 calculation from DSS1
-    dss_score <- dss_score / R_max
-    if (dssType == "DSS2") {
-      return(dss_score)
-    }
-
-    dss_score <- dss_score * (active_span / total_span)
-    if (dssType == "DSS3") {
-      return(dss_score)
-    }
-
-    return(NaN) # If dssType is not recognized, return NaN
-  }
-}
-
-# Calculate one or more DSS variants. A single variant retains the historical
-# scalar return value; multiple variants are returned as a named numeric vector.
 calcDSS <- function(value, conc, dssType = "DSS2", threshold = 10) {
   valid_types <- c("DSS1", "DSS2", "DSS3")
 
   if (!is.character(dssType) || length(dssType) == 0 || anyNA(dssType)) {
     stop("dssType must be one or more of 'DSS1', 'DSS2', 'DSS3', or 'all'.")
   }
-
+  
   if ("all" %in% dssType) {
     dss_types <- valid_types
   } else {
     dss_types <- unique(dssType)
   }
-
+  
   if (any(!dss_types %in% valid_types)) {
-    stop("dssType must be one or more of 'DSS1', 'DSS2', 'DSS3', or 'all'.")
+    stop("dssType must be one of 'DSS1', 'DSS2', 'DSS3', or 'all'.")
   }
-
-  scores <- vapply(
-    dss_types,
-    function(type) calcDSS_single(value, conc, dssType = type,
-                                   threshold = threshold),
-    numeric(1)
-  )
-
+  
+  # --- 1. CLEAN AND AGGREGATE (Base R for speed) ---
+  # Filter out NA and concentrations <= 0
+  valid_idx <- !is.na(conc) & !is.na(value) & conc > 0
+  if (!any(valid_idx)) return(if(length(dss_types) == 1) NaN else stats::setNames(rep(NaN, length(dss_types)), dss_types))
+  
+  conc <- conc[valid_idx]
+  value <- value[valid_idx]
+  
+  # Fast aggregation of replicates using tapply 
+  agg_viab <- tapply(value, conc, mean)
+  unique_conc <- as.numeric(names(agg_viab))
+  
+  # Sort by concentration
+  sort_idx <- order(unique_conc)
+  conc_sorted <- unique_conc[sort_idx]
+  viab_sorted <- as.numeric(agg_viab)[sort_idx]
+  
+  n_points <- length(conc_sorted)
+  if (n_points < 2) return(if(length(dss_types) == 1) NaN else stats::setNames(rep(NaN, length(dss_types)), dss_types))
+  
+  # --- 2. CALCULATE METRICS ONCE ---
+  inhibition <- (1 - viab_sorted) * 100
+  
+  if (sum(inhibition > threshold) < 2) {
+    res <- rep(NaN, length(dss_types))
+    return(if(length(dss_types) == 1) NaN else stats::setNames(res, dss_types))
+  }
+  
+  log_conc <- log10(conc_sorted)
+  total_span <- log_conc[n_points] - log_conc[1]
+  
+  active_conc <- conc_sorted[inhibition > threshold]
+  if (length(active_conc) > 1) {
+    active_span <- log10(tail(active_conc, 1) / head(active_conc, 1))
+  } else {
+    if (any(c("DSS2", "DSS3") %dofin% dss_types)) { # note: check logic below
+      # If active_span is insufficient for DSS2/DSS3, handle gracefully
+      active_span <- 0
+    } else {
+      active_span <- 0
+    }
+  }
+  
+  # If active_span is 0 or invalid for DSS2/DSS3 requirements
+  if (length(active_conc) <= 1 && any(dss_types %in% c("DSS2", "DSS3"))) {
+    res <- rep(NaN, length(dss_types))
+    return(if(length(dss_types) == 1) NaN else stats::setNames(res, dss_types))
+  }
+  
+  # Trapezoidal AUC
+  auc <- sum((inhibition[-n_points] + inhibition[-1]) * diff(log_conc) / 2)
+  R_max <- log10(max(inhibition))
+  
+  # Base DSS1 calculation
+  dss1 <- (auc - threshold * active_span) / ((100 - threshold) * total_span)
+  
+  # Derive other scores mathematically from DSS1 (no re-computation!)
+  dss2 <- dss1 / R_max
+  dss3 <- dss2 * (active_span / total_span)
+  
+  # Map results
+  score_map <- c("DSS1" = dss1, "DSS2" = dss2, "DSS3" = dss3)
+  scores <- score_map[dss_types]
+  
   if (length(scores) == 1) {
     unname(scores)
   } else {
