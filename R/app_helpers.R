@@ -500,7 +500,20 @@ checkAnnotationFile <- function(temp_dir, folder, pattern){
 
   out
 }
+# Add wellType column to wellAnno based on inputs
+addWellType <- function(dataframe, negctrl, posctrl, single) {
+  dataframe <- if (!single) {
+    dataframe |> dplyr::mutate(drug_name = paste0(drug, "_", drug2))
+  } else {
+    dataframe |> dplyr::mutate(drug_name = drug)
+  }
 
+  dataframe |> dplyr::mutate(wellType = dplyr::case_when(
+    drug_name %in% negctrl ~ "neg",
+    drug_name %in% posctrl ~ "pos",
+    TRUE ~ "sample"
+  ))
+}
 
 
 

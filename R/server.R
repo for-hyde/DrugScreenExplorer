@@ -175,6 +175,12 @@
       )
     })
 
+    ######DELETE, BUT ENSURE CALLS ARE CHANGED FIRST###
+    summaryStats <- reactive({
+      req(input$chosenStats)
+      input$chosenStats
+    })
+
     # 1.3 Reactive data and calculations ----
     #If no range is supplied, set colRange to NULL, which will trigger automatic parsing.
     columnRange <- reactive({
@@ -273,6 +279,152 @@
       return(processedScreenData)
     })
 
+    normTable <- eventReactive(input$doNorm, {
+      req(processedScreenData())
+      # Check all values are valid for normalization
+      return(processedScreenData())
+      # if (is.null(input$negWell)){
+      #   showNotification("Need negative drugs for normalization", type = "error")
+      #   return(NULL)
+      # }
+      # if (is.null(input$posWell) && input$method == "NPI"){
+      #   showNotification("Need positive drugs for normalization", type = "error")
+      #   return(NULL)
+      # }
+      # # if the positive well is null, convert to empty list.
+      # posWs <- if (is.null(input$posWell)) character(0) else input$posWell
+      # negWs <- input$negWell #Already checked, cannot be null.
+
+      # # With drugs known, annotate the data with wellType
+      # df <- addWellType(processedScreenData(),
+      #                   negctrl = negWs,
+      #                   posctrl = posWs,
+      #                   single = !ifDrug2())
+
+      # return(df)
+
+    })
+
+    output$normTable_ui <- renderUI({
+      req(normTable())
+      div(class = "table-container table2",
+          h3("Normalized Values"),
+          DT::DTOutput("normTable")
+      )
+    })
+
+    output$normTable <- DT::renderDT({
+      req(normTable())
+
+      DT::datatable(
+        normTable(),
+        filter = "top",
+        rownames = FALSE,
+        style = "bootstrap",
+      )
+    })
+
+    # When button is pressed, perform normalization and summarization of data
+    # observeEvent(input$doNorm, {
+
+    #   req(processedScreenData())
+    #   warningMessage(NULL)  # Reset warning message
+
+    #   if (ifDrug2()) {
+    #     # Both drug_drug2 amd drug2_drug work
+    #     combs <- paste0(processedScreenData()$drug, "_",
+    #                     processedScreenData()$drug2)
+    #     # screenData0, data before screenData
+    #     screenData0 <- dplyr::mutate(processedScreenData(),
+    #                                  wellType = case_when(combs %in% negWs ~ "neg",
+    #                                                       combs %in% posWs ~ "pos",
+    #                                                       .default = "sample"))
+    #   } else {
+    #     screenData0 <- dplyr::mutate(processedScreenData(),
+    #                                  wellType = case_when(drug %in% negWs ~ "neg",
+    #                                                       drug %in% posWs ~ "pos",
+    #                                                       .default = "sample"))
+    #   }
+
+    #   # Normalize data
+    #   if (input$method == "negatives" && length(negWs) == 0) {
+    #     warningMessage("Need negative drugs for normalization")
+    #     return()
+    #   }
+
+    #   if (input$method == "NPI" &&
+    #     (length(negWs) == 0 || length(posWs) == 0)) {
+    #     warningMessage("Need negative and positive drugs for normalization")
+    #     return()
+    #   }
+
+    #   showModal(modalDialog("Normalizing ... May take some time.", footer = NULL))
+
+    #   normalizationSucceeded <- FALSE
+    #   tryCatch({
+    #     screenData0 <- normalizePlate(
+    #       screenData0,
+    #       method = input$method,
+    #       discardLayer = input$discardLayer,
+    #       bySample = FALSE
+    #     )
+
+    #     if (!ifDrug2()) {
+    #       screenData0 <- summariseScreen(screenData0,
+    #                                      method = summaryStats())
+    #     }
+
+    #     screenData(screenData0)
+    #     normalizationSucceeded <- TRUE
+    #   }, error = function(e) {
+    #     warningMessage(paste("Error:", e$message))
+    #   })
+
+    #   removeModal()
+    #   if (!normalizationSucceeded)
+    #     return()
+    # })
+
+    # output$warningMessage <- renderText({
+    #   warningMessage()
+    # })
+
+    # # output normalize data
+    # normData <- reactive({
+
+    #   if(ifDrug2())
+    #     addDurgCol <- c("drug", "drug2")
+    #   else
+    #     addDurgCol <- "drug"
+
+    #   req(screenData())
+    #   selRows <- input$sampleInfo_row_last_clicked
+    #   selectedPlates <- as.character(infoTableRaw()[selRows, ] %>%
+    #                                    pull(fileName))
+
+    #   if(length(selectedPlates) == 0)
+    #     selectedPlates <- infoTableRaw() %>% pull(fileName)
+
+    #   selectedPlates <- unique(selectedPlates)
+
+    #   normTable <- screenData() %>%
+    #     filter(fileName %in% selectedPlates) %>%
+    #     #Adding WellLabel column to DF (required for report) FH
+    #     mutate(
+    #       .drug_combination = if(ifDrug2()) paste0(drug, "_", drug2) else drug,
+    #       wellType = case_when(
+    #         .drug_combination %in% input$negWell ~ "neg",
+    #         .drug_combination %in% input$posWell ~ "pos",
+    #         TRUE                                 ~ "sample"
+    #       )
+    #     ) %>%
+    #     dplyr::select(any_of(c("sampleID", "fileName", "wellID", "rowID", "colID",
+    #                            "wellType", addDurgCol, input$sampleAnnotations_norm, "value",
+    #                            "normVal", "normVal.cor")))
+    #   return(normTable)
+    # })
+
+
     # 1.5 Outputs and Plots ----
     # Select metadata columns based on sampleAnnotation input
     infoTableRaw <- reactive({
@@ -335,195 +487,175 @@
     warningMessage <- reactiveVal() # To store warnings
     #UI for selecting what to render
 
-    output$statisticsUI <- renderUI({
-      req(processedScreenData())
-      checkboxGroupInput(
-        "chosenStats",
-        "Select summary statistics to calculate.",
-        c(
-          "Inhibitory Concentration 50 (IC50)" = "IC50",
-          "Area under the curve(AUC)" = "AUC",
-          "Drug Sensitivity Score (DSS)" = "DSS1",
-          "Concentration adjusted DSS (DSS2)" = "DSS2",
-          "Emphasized potency DSS (DSS3)" = "DSS3"
-        )
-      )
-    })
+    # observeEvent(input$doNorm, {
 
-    summaryStats <- reactive({
-      req(input$chosenStats)
-      input$chosenStats
-    })
+    #   req(processedScreenData())
+    #   warningMessage(NULL)  # Reset warning message
 
-    observeEvent(input$doNorm, {
+    #   if (is.null(input$negWell))
+    #     negWs <- c()
+    #   else
+    #     negWs <- input$negWell
 
-      req(processedScreenData())
-      warningMessage(NULL)  # Reset warning message
+    #   if (is.null(input$posWell))
+    #     posWs <- c()
+    #   else
+    #     posWs <- input$posWell
 
-      if (is.null(input$negWell))
-        negWs <- c()
-      else
-        negWs <- input$negWell
+    #   if (ifDrug2()) {
+    #     # Both drug_drug2 amd drug2_drug work
+    #     combs <- paste0(processedScreenData()$drug, "_",
+    #                     processedScreenData()$drug2)
+    #     # screenData0, data before screenData
+    #     screenData0 <- dplyr::mutate(processedScreenData(),
+    #                                  wellType = case_when(combs %in% negWs ~ "neg",
+    #                                                       combs %in% posWs ~ "pos",
+    #                                                       .default = "sample"))
+    #   } else {
+    #     screenData0 <- dplyr::mutate(processedScreenData(),
+    #                                  wellType = case_when(drug %in% negWs ~ "neg",
+    #                                                       drug %in% posWs ~ "pos",
+    #                                                       .default = "sample"))
+    #   }
 
-      if (is.null(input$posWell))
-        posWs <- c()
-      else
-        posWs <- input$posWell
+    #   # Normalize data
+    #   if (input$method == "negatives" && length(negWs) == 0) {
+    #     warningMessage("Need negative drugs for normalization")
+    #     return()
+    #   }
 
-      if (ifDrug2()) {
-        # Both drug_drug2 amd drug2_drug work
-        combs <- paste0(processedScreenData()$drug, "_",
-                        processedScreenData()$drug2)
-        # screenData0, data before screenData
-        screenData0 <- dplyr::mutate(processedScreenData(),
-                                     wellType = case_when(combs %in% negWs ~ "neg",
-                                                          combs %in% posWs ~ "pos",
-                                                          .default = "sample"))
-      } else {
-        screenData0 <- dplyr::mutate(processedScreenData(),
-                                     wellType = case_when(drug %in% negWs ~ "neg",
-                                                          drug %in% posWs ~ "pos",
-                                                          .default = "sample"))
-      }
+    #   if (input$method == "NPI" &&
+    #     (length(negWs) == 0 || length(posWs) == 0)) {
+    #     warningMessage("Need negative and positive drugs for normalization")
+    #     return()
+    #   }
 
-      # Normalize data
-      if (input$method == "negatives" && length(negWs) == 0) {
-        warningMessage("Need negative drugs for normalization")
-        return()
-      }
+    #   showModal(modalDialog("Normalizing ... May take some time.", footer = NULL))
 
-      if (input$method == "NPI" &&
-        (length(negWs) == 0 || length(posWs) == 0)) {
-        warningMessage("Need negative and positive drugs for normalization")
-        return()
-      }
+    #   normalizationSucceeded <- FALSE
+    #   tryCatch({
+    #     screenData0 <- normalizePlate(
+    #       screenData0,
+    #       method = input$method,
+    #       discardLayer = input$discardLayer,
+    #       bySample = FALSE
+    #     )
 
-      showModal(modalDialog("Normalizing ... May take some time.", footer = NULL))
+    #     if (!ifDrug2()) {
+    #       screenData0 <- summariseScreen(screenData0,
+    #                                      method = summaryStats())
+    #     }
 
-      normalizationSucceeded <- FALSE
-      tryCatch({
-        screenData0 <- normalizePlate(
-          screenData0,
-          method = input$method,
-          discardLayer = input$discardLayer,
-          bySample = FALSE
-        )
+    #     screenData(screenData0)
+    #     normalizationSucceeded <- TRUE
+    #   }, error = function(e) {
+    #     warningMessage(paste("Error:", e$message))
+    #   })
 
-        if (!ifDrug2()) {
-          screenData0 <- summariseScreen(screenData0,
-                                         method = summaryStats())
-        }
+    #   removeModal()
+    #   if (!normalizationSucceeded)
+    #     return()
+    # })
 
-        screenData(screenData0)
-        normalizationSucceeded <- TRUE
-      }, error = function(e) {
-        warningMessage(paste("Error:", e$message))
-      })
+    # output$warningMessage <- renderText({
+    #   warningMessage()
+    # })
 
-      removeModal()
-      if (!normalizationSucceeded)
-        return()
-    })
+    # # output normalize data
+    # normData <- reactive({
 
-    output$warningMessage <- renderText({
-      warningMessage()
-    })
+    #   if(ifDrug2())
+    #     addDurgCol <- c("drug", "drug2")
+    #   else
+    #     addDurgCol <- "drug"
 
-    # output normalize data
-    normData <- reactive({
+    #   req(screenData())
+    #   selRows <- input$sampleInfo_row_last_clicked
+    #   selectedPlates <- as.character(infoTableRaw()[selRows, ] %>%
+    #                                    pull(fileName))
 
-      if(ifDrug2())
-        addDurgCol <- c("drug", "drug2")
-      else
-        addDurgCol <- "drug"
+    #   if(length(selectedPlates) == 0)
+    #     selectedPlates <- infoTableRaw() %>% pull(fileName)
 
-      req(screenData())
-      selRows <- input$sampleInfo_row_last_clicked
-      selectedPlates <- as.character(infoTableRaw()[selRows, ] %>%
-                                       pull(fileName))
+    #   selectedPlates <- unique(selectedPlates)
 
-      if(length(selectedPlates) == 0)
-        selectedPlates <- infoTableRaw() %>% pull(fileName)
-
-      selectedPlates <- unique(selectedPlates)
-
-      normTable <- screenData() %>%
-        filter(fileName %in% selectedPlates) %>%
-        #Adding WellLabel column to DF (required for report) FH
-        mutate(
-          .drug_combination = if(ifDrug2()) paste0(drug, "_", drug2) else drug,
-          wellType = case_when(
-            .drug_combination %in% input$negWell ~ "neg",
-            .drug_combination %in% input$posWell ~ "pos",
-            TRUE                                 ~ "sample"
-          )
-        ) %>%
-        dplyr::select(any_of(c("sampleID", "fileName", "wellID", "rowID", "colID",
-                               "wellType", addDurgCol, input$sampleAnnotations_norm, "value",
-                               "normVal", "normVal.cor")))
-      return(normTable)
-    })
+    #   normTable <- screenData() %>%
+    #     filter(fileName %in% selectedPlates) %>%
+    #     #Adding WellLabel column to DF (required for report) FH
+    #     mutate(
+    #       .drug_combination = if(ifDrug2()) paste0(drug, "_", drug2) else drug,
+    #       wellType = case_when(
+    #         .drug_combination %in% input$negWell ~ "neg",
+    #         .drug_combination %in% input$posWell ~ "pos",
+    #         TRUE                                 ~ "sample"
+    #       )
+    #     ) %>%
+    #     dplyr::select(any_of(c("sampleID", "fileName", "wellID", "rowID", "colID",
+    #                            "wellType", addDurgCol, input$sampleAnnotations_norm, "value",
+    #                            "normVal", "normVal.cor")))
+    #   return(normTable)
+    # })
 
     # # DT table for showing the sample annotations and filtering
-    output$normTable <- DT::renderDT({
+    # output$normTable <- DT::renderDT({
 
-      req(normData())
-      normData_new <- mutate_if(normData(), is.character, as.factor) %>%
-        mutate(across(starts_with("normVal"), ~ format(round(.x, 3), nsmall = 3)))
+    #   req(normData())
+    #   normData_new <- mutate_if(normData(), is.character, as.factor) %>%
+    #     mutate(across(starts_with("normVal"), ~ format(round(.x, 3), nsmall = 3)))
 
-      DT::datatable(normData_new,
-                    filter = "top",
-                    rownames = FALSE,
-                    selection = 'none',
-                    style = "bootstrap")
-    })
+    #   DT::datatable(normData_new,
+    #                 filter = "top",
+    #                 rownames = FALSE,
+    #                 selection = 'none',
+    #                 style = "bootstrap")
+    # })
 
-    output$normTable_ui <- renderUI({
-      req(normData())
-      div(class = "table-container table2",
-          h3("Normalized Values"),
-          DT::DTOutput("normTable")
-      )
-    })
+    # output$normTable_ui <- renderUI({
+    #   req(normData())
+    #   div(class = "table-container table2",
+    #       h3("Normalized Values"),
+    #       DT::DTOutput("normTable")
+    #   )
+    # })
 
     ## 1.2.3 Generate QC report
-    output$reportDownload <- renderUI({
-      #Only display option after the data has been normalized
-      req(normData())
-      downloadButton("downloadQC", "Download QC Report")
-    })
-    output$authorName_ui <- renderUI({
-      req(normData())
-      textInput("authorName", "Your Name (optional)", value = "")
-    })
+    # output$reportDownload <- renderUI({
+    #   #Only display option after the data has been normalized
+    #   req(normData())
+    #   downloadButton("downloadQC", "Download QC Report")
+    # })
+    # output$authorName_ui <- renderUI({
+    #   req(normData())
+    #   textInput("authorName", "Your Name (optional)", value = "")
+    # })
 
-    # Make QC report
-    output$downloadQC <- downloadHandler(
-      filename = function () {
-        "QC_report.html"
-      },
-      content = function(file) {
-        tmpdir <- tempfile("drug-screen-report-")
-        dir.create(tmpdir, recursive = TRUE)
-        on.exit(unlink(tmpdir, recursive = TRUE, force = TRUE), add = TRUE)
+    # # Make QC report
+    # output$downloadQC <- downloadHandler(
+    #   filename = function () {
+    #     "QC_report.html"
+    #   },
+    #   content = function(file) {
+    #     tmpdir <- tempfile("drug-screen-report-")
+    #     dir.create(tmpdir, recursive = TRUE)
+    #     on.exit(unlink(tmpdir, recursive = TRUE, force = TRUE), add = TRUE)
 
-        norm_data <- normData()
-        report_file <- makeReport(
-          screenData = norm_data,
-          dir = tmpdir,
-          author = ifelse(is.null(input$authorName) || input$authorName == "", "Author Name", input$authorName)
-        )
+    #     norm_data <- normData()
+    #     report_file <- makeReport(
+    #       screenData = norm_data,
+    #       dir = tmpdir,
+    #       author = ifelse(is.null(input$authorName) || input$authorName == "", "Author Name", input$authorName)
+    #     )
 
-        copied <- file.copy(
-          from = report_file,
-          to = file,
-          overwrite = TRUE
-        )
-        if (!isTRUE(copied)) {
-          stop("The generated QC report could not be copied to the download path")
-        }
-      }
-    )
+    #     copied <- file.copy(
+    #       from = report_file,
+    #       to = file,
+    #       overwrite = TRUE
+    #     )
+    #     if (!isTRUE(copied)) {
+    #       stop("The generated QC report could not be copied to the download path")
+    #     }
+    #   }
+    # )
 
     #-----------------------------------------------------------------------------
     # 1.3 adjust incubation effect
