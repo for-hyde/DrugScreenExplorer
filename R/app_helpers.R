@@ -469,7 +469,7 @@ plot_synergyscreen <- function(x,
 }
 
 #Small help function to estimate the number of columns for dataframes automatically. 
-find_column_count <- function(raw_dir_path, sep, skip = 0) {
+findColumnCount <- function(raw_dir_path, sep, skip = 0) {
   # Determine files in path
   files <- list.files(raw_dir_path, full.names = TRUE, recursive = TRUE)
   # Read the first file in the directory
@@ -479,9 +479,27 @@ find_column_count <- function(raw_dir_path, sep, skip = 0) {
   # Split the line by the specified separator and count the number of columns
   num_columns <- length(strsplit(first_line, sep)[[1]])
   # Return the number of columns
-  return(num_columns)
+  num_columns
 }
 
+
+#Preprocessing help functions----
+#Check annotation files (plateAnno, wellAnno) exist in the correct folder.
+checkAnnotationFile <- function(temp_dir, folder, pattern){
+  out <- list.files(
+    file.path(temp_dir, folder),
+    pattern = pattern,
+    full.names = TRUE,
+  )
+
+  if (length(out) == 0) {
+    warning(
+      paste0("Missing file in ", folder, " folder: ", pattern)
+    )
+  }
+
+  out
+}
 
 
 

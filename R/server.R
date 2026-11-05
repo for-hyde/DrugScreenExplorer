@@ -31,61 +31,39 @@
 .buildServer <- function(...) {
 
   serve <- function(input, output, session) {
+    # 1. Data Preprocessing (DP)----
+    # 1.1 Constants and configuration ----
+    # Temp dir for file handling
+    temp <- file.path(tempdir(), "DrugScreenExplorer")
 
-    output$pathDisplay <- renderText({
-      paste0("Find example data at ", system.file(package = "DrugScreenExplorer"), "/extdata")
-    })
-
-    # get temp directory
-    temp <- tempdir()
-
-    # Arguments for selection
-    observe({
-      # unzip the file
-      req(input$fileInput)
-      unzip(input$fileInput$datapath, exdir = temp)
-
-      fileCheck <- all(c("plateAnno", "rawData", "wellAnno") %in% list.files(temp))
-
-      if (!fileCheck){
-        misFiles <- setdiff(c("plateAnno", "rawData", "wellAnno"),
-                            list.files(temp))
-        warning("File missing: ", misFiles, "\n\n")
-      }
-    })
-
+    # Point to rawData dir
     rawDir <- reactive({
       paste0(temp, "/rawData")
     })
 
-    # check plateAnno
+    # Extract plateAnno file
     checkPlateAnno <- reactive({
 
       req(input$fileInput)
-      out <- list.files(paste0(temp, "/plateAnno/"),
-                        pattern = "plateAnno",
-                        full.names = TRUE)
-
-      if (length(out) == 0)
-        warning("Missing file in plateAnno folder: plateAnno, \n\n")
-
-      return(out)
+      checkAnnotationFile(temp,
+                          "plateAnno",
+                          "plateAnno")
     })
-
+    # Extract wellAnno file 
     checkWellAnno <- reactive({
-
       req(input$fileInput)
-      out <- list.files(paste0(temp, "/wellAnno/"),
-                        pattern = "wellAnno",
-                        full.names = TRUE)
-      if (length(out) == 0)
-        warning("Missing file in wellAnno folder: wellAnno \n\n")
-
-      return(out)
+      checkAnnotationFile(temp,
+                          "wellAnno",
+                          "wellAnno")
+    })
+    # Check if drug combination data is present
+    ifDrug2 <- reactive({
+      req(processedScreenData())
+      "drug2" %in% colnames(processedScreenData())
     })
 
-## - Section Used to select range of files and Separator index. Regex expression should be enough. Marked to delete.
-    # row Range
+    # 1.2 User Inputs ----
+    # User input for manual data loading
     output$getRange <- renderUI({
 
       req(input$fileInput)
@@ -94,42 +72,40 @@
                       style = "font-size: 14px; font-weight: bold;"),
               div(style = "display:inline-block; width: 90px",
                   numericInput("rowTop", "Top", value = 3,
-                               min = 0,
-                               max = 9999,
-                               step = 1)),
+                                min = 0,
+                                max = 9999,
+                                step = 1)),
               div(style = "display:inline-block; width: 90px",
                   numericInput("rowBottom", "Bottom", value = 18,
-                               min = 0,
-                               max = 9999,
-                               step = 1)),
+                                min = 0,
+                                max = 9999,
+                                step = 1)),
               div(style = "display:inline-block; width: 90px",
                   numericInput("colLeft", "Left", value = 2,
-                               min = 0,
-                               max = 9999,
-                               step = 1)),
+                                min = 0,
+                                max = 9999,
+                                step = 1)),
               div(style = "display:inline-block; width: 90px",
                   numericInput("colRight", "Right", value = 9999,
-                               min = 0,
-                               max = 9999,
-                               step = 1))
+                                min = 0,
+                                max = 9999,
+                                step = 1))
       )
     })
-
     output$sepText <- renderUI({
       req(input$fileInput)
       textInput("sepText",
                 "Separator Character",
                 value = ";")
     })
-
     output$commaAsDecimalCheckBox <- renderUI({
       req(input$fileInput)
       checkboxInput("commaAsDecimal",
                     "Commas is used as decimal in the input data",
                     value = FALSE)
     })
-## -
 
+    # Normalization UI elements
     output$discardLayerInput <- renderUI({
       req(input$fileInput)
       numericInput("discardLayer",
@@ -153,32 +129,106 @@
                   selected = "negatives")
       # }
     })
+#---Normalization UI elemets
+    #Select negative and positive wells for normalization
+    output$selWells <- renderUI({
+      req(processedScreenData())
+      df <- processedScreenData()
+      
+      # Create a unique list if drug combinations
+      if ("drug2" %in% colnames(processedScreenData())){
+        df <- df |>
+          dplyr::mutate(drug_combination = paste0(drug, "_", drug2))
+        allDrugs <- unique(df$drug_combination)
+      } else {
+        allDrugs <- unique(processedScreenData()$drug)
+      }
 
+      # selectInput
+      tagList(
+        selectInput("negWell","Negative control wells: drug names",
+                    choices = sort(allDrugs),
+                    multiple = TRUE,
+                    selected = NULL),
+        selectInput("posWell", "Positive wells: drug names",
+                    choices = sort(allDrugs),
+                    multiple = TRUE,
+                    selected = NULL)
+      )
+    })
+    #Choices of summary statistics to calculate
+    output$statisticsUI <- renderUI({
+      req(processedScreenData())
+      if (ifDrug2()) {
+        return(NULL)  # No summary statistics for drug combinations
+      }
+      checkboxGroupInput(
+        "chosenStats",
+        "Select summary statistics to calculate.",
+        c(
+          "Inhibitory Concentration 50 (IC50)" = "IC50",
+          "Area under the curve(AUC)" = "AUC",
+          "Drug Sensitivity Score (DSS)" = "DSS1",
+          "Concentration adjusted DSS (DSS2)" = "DSS2",
+          "Emphasized potency DSS (DSS3)" = "DSS3"
+        )
+      )
+    })
+
+    # 1.3 Reactive data and calculations ----
     #If no range is supplied, set colRange to NULL, which will trigger automatic parsing.
-    colRange <- reactive({
+    columnRange <- reactive({
       if(input$colRight == 9999){
-        end <- find_column_count(rawDir(), 
+        end <- findColumnCount(rawDir(), 
                           input$sepText,
                           skip = input$rowTop)#Skip to row Top  
         c(input$colLeft, end)
-      }
-      else {
+      } else {
         c(input$colLeft, input$colRight)
       }
     })
 
+    #Dynamically generate UI for column selection
+    output$column_selector_ui <- renderUI({
+      #data must be read in first.
+      req(processedScreenData())
+      #Ensure that sampleID is available for selection (default)
+      validate(
+        need("sampleID" %in% colnames(processedScreenData()),
+        "Error: sampleID column is missing from the data. 
+         Please check your input files.")
+      )
 
-    #-----------------------------------------------------------------------------
-    # 1.1 import data
-## - Replace eventReactive with bindEvent..
+      choices <- setdiff(colnames(processedScreenData()),
+                         c("wellID", "rowID", "colID", "value"))
+
+      selectInput("sampleAnnotations",
+                  "Select sample information to display:",
+                  choices = choices,
+                  selected = intersect(c("sampleID", "fileName"), choices),
+                  multiple = TRUE,
+                  width = "100%")
+    })
+
+    # 1.4 Event observers and logical controls ----
+    # When .zip file is chosen, unzip to temp dir and check all files exist
+    observe({
+      req(input$fileInput) #Input file chosen
+      unzip(input$fileInput$datapath, exdir = temp)
+      #Check all files exist 
+      fileCheck <- all(c("plateAnno", "rawData", "wellAnno") %in% list.files(temp))
+      if (!fileCheck){
+        misFiles <- setdiff(c("plateAnno", "rawData", "wellAnno"),
+                            list.files(temp))
+        warning("File missing: ", misFiles, "\n\n")
+      }
+    })
+
+    # When import button is clicked, read in data and generate screenData 
     processedScreenData <- eventReactive(input$doImport, {
-
+      #Requires a .zip file (that has been validated) to be selected. 
       req(input$fileInput)
-          # input$rowTop,
-          # input$rowBottom,
-          # input$sep,
-          # input$discardLayer Should only require the fileInput.
-          # )
+
       processedScreenData <-
         tryCatch({
                   #only accept ranges if manual ranges is selected.
@@ -198,7 +248,7 @@
                                         NULL
                                        },
                                        colRange = if (manual_ranges) {
-                                        colRange()
+                                        columnRange()
                                        } else {
                                         NULL
                                        },
@@ -209,7 +259,7 @@
                                        },
                                        negWell = c(),
                                        posWell = c(),
-                                       allowNA = !isTRUE(input$allowNA),#If allowNA exists, set to TRUE, otherwise FALSE.
+                                       allowNA = isTRUE(input$allowNA),
                                        normalization = FALSE)
         }, error = function(e) {
           warning(
@@ -223,58 +273,35 @@
       return(processedScreenData)
     })
 
-    output$readScreen_message <- renderText({
-      req(processedScreenData())
-      if (!is.null(processedScreenData()$message))
-        processedScreenData()$message
-    })
-
-    # Dynamically generate UI for column selection
-    output$column_selector_ui <- renderUI({
-      req(processedScreenData())
-      choices <- setdiff(colnames(processedScreenData()),
-                         c("wellID", "rowID", "colID", "value",
-                           "sampleID", "fileName"))
-
-      if (!"sampleID" %in% colnames(processedScreenData()))
-        textOutput("'sampleID' should be defaulted selected")
-      else
-        selectInput("sampleAnnotations",
-                    "Select sample information to display:",
-                    choices = choices,
-                    # selected = c("sampleID", "fileName"),
-                    multiple = TRUE,
-                    width = "100%")
-    })
-
-    # Show info Table for un-normalized data
+    # 1.5 Outputs and Plots ----
+    # Select metadata columns based on sampleAnnotation input
     infoTableRaw <- reactive({
 
       req(processedScreenData())
-      ## First panel: sample over view and subset
-      ## A table to store unique samples information
 
-      infoTable <- processedScreenData() %>%
-        dplyr::select(c("sampleID", "fileName", input$sampleAnnotations)) %>%
+      selectedCols <- c("sampleID", input$sampleAnnotations)
+
+      infoTable <- processedScreenData() |>
+        # Select only the columns specified by the user in the UI
+        dplyr::select(dplyr::all_of(selectedCols)) |>
         distinct(sampleID, .keep_all = TRUE)
 
       return(infoTable)
     })
 
-    # # DT table for showing the sample annotations and filtering
+    # Render sample information table
     output$sampleInfo <- DT::renderDT({
-      info <- infoTableRaw()
+      req(infoTableRaw())
+      infoTableRaw() |>
+        mutate(across(where(is.character), as.factor)) |>
+        DT::datatable(filter = "top",
+                      rownames = FALSE,
+                      selection = "single",
+                      style = "bootstrap")
 
-      req(info)
-      infoTable_new <- mutate_if(info, is.character, as.factor)
-      ## dplyr::select(-fileName)
-      DT::datatable(infoTable_new,
-                    filter = "top",
-                    rownames = FALSE,
-                    selection = "single",
-                    style = "bootstrap")
     })
 
+    # Render header information for sample information table
     output$sampleInfo_ui <- renderUI({
 
       req(infoTableRaw())
@@ -284,43 +311,49 @@
       )
     })
 
+    # 1.6 Warnings, notifications, and messages ----
+
+    output$pathDisplay <- renderText({
+      paste0("Find example data at ",
+             system.file(package = "DrugScreenExplorer"), "/extdata")
+    })
+
+
+    output$readScreen_message <- renderText({
+      req(processedScreenData())
+      if (!is.null(processedScreenData()$message))
+        processedScreenData()$message
+    })
+####################################################
+
     #-----------------------------------------------------------------------------
     # 1.2 normalization section
-
-    ifDrug2 <- reactive({
-      req(processedScreenData())
-      "drug2" %in% colnames(processedScreenData())
-    })
-
-    output$selWells <- renderUI({
-
-      req(processedScreenData())
-      # only two drug combination allowed
-      if ("drug2" %in% colnames(processedScreenData())){
-        allDrugs <-
-          unique(paste0(processedScreenData()$drug, "_",
-                        processedScreenData()$drug2))
-      } else {
-        allDrugs <- unique(processedScreenData()$drug)
-      }
-
-      # selectInput
-      tagList(
-        selectInput("negWell","Negative control wells: drug names",
-                    choices = sort(allDrugs),
-                    multiple = TRUE,
-                    selected = NULL),
-        selectInput("posWell", "Positive wells: drug names",
-                    choices = sort(allDrugs),
-                    multiple = TRUE,
-                    selected = NULL)
-      )
-    })
 
     # define the well type information
     # screenData is the normalized data
     screenData <- reactiveVal()
     warningMessage <- reactiveVal() # To store warnings
+    #UI for selecting what to render
+
+    output$statisticsUI <- renderUI({
+      req(processedScreenData())
+      checkboxGroupInput(
+        "chosenStats",
+        "Select summary statistics to calculate.",
+        c(
+          "Inhibitory Concentration 50 (IC50)" = "IC50",
+          "Area under the curve(AUC)" = "AUC",
+          "Drug Sensitivity Score (DSS)" = "DSS1",
+          "Concentration adjusted DSS (DSS2)" = "DSS2",
+          "Emphasized potency DSS (DSS3)" = "DSS3"
+        )
+      )
+    })
+
+    summaryStats <- reactive({
+      req(input$chosenStats)
+      input$chosenStats
+    })
 
     observeEvent(input$doNorm, {
 
@@ -360,7 +393,7 @@
       }
 
       if (input$method == "NPI" &&
-          (length(negWs) == 0 || length(posWs) == 0)) {
+        (length(negWs) == 0 || length(posWs) == 0)) {
         warningMessage("Need negative and positive drugs for normalization")
         return()
       }
@@ -378,8 +411,7 @@
 
         if (!ifDrug2()) {
           screenData0 <- summariseScreen(screenData0,
-                                         method = c("average", "AUC", "IC50", "DSS"),
-                                         dssType = "all")
+                                         method = summaryStats())
         }
 
         screenData(screenData0)

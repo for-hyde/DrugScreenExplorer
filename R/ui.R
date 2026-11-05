@@ -29,11 +29,11 @@ seleDrugUI <- function(id) {
     "DrugScreenExplorer",
     inverse = TRUE,
     id = "tabs",
-
+#----Data Preprocessing----
     tabPanel("Data Preprocessing",
              titlePanel("Data Preprocessing"),
              sidebarLayout(
-
+#----User inputs----#
                sidebarPanel(
 
                  shiny::tags$div(
@@ -42,7 +42,6 @@ seleDrugUI <- function(id) {
                    h3(tags$b("1 File Import"), style = "background-color: lightgray; padding: 10px;"),
 
                    fileInput("fileInput", "Choose ZIP File", accept = ".zip"),
-                   # Add additional toggle for selecting from ZIP or selecting individual files.
                    
                    bsTooltip(id = "fileInput", title = "A Zip File containing plateAnno, wellAnno, and rawData"),
                    textOutput("pathDisplay") %>%
@@ -82,6 +81,9 @@ seleDrugUI <- function(id) {
                    uiOutput("allowNACheckBox"),
                    uiOutput("selWells"),
                    bsTooltip("selWells", "Specifies negative /positive control wells"),
+                   uiOutput("statisticsUI"),
+                   bsTooltip("statisticsUI", "A selection of what summary statistics to use
+                   for each plate."),
                    actionButton("doNorm", "Normalize", align = "center"),
                    bsTooltip("doNorm", "Please wait, the process may take some time"),
                    verbatimTextOutput("warningMessage") %>%
@@ -89,7 +91,7 @@ seleDrugUI <- function(id) {
                    uiOutput("column_selector_normTable_ui")
                  ), width = 4),
 
-               # main paneal
+#----Main Panel----#
                mainPanel(
                  tags$style(HTML(".table-container {padding: 10px; border-radius: 5px; margin-bottom: 20px; }
                .table1 {background-color: #f8f9fa;  /* Light gray background */ }
@@ -113,10 +115,11 @@ seleDrugUI <- function(id) {
       )
     ),
 
-    # Plate plot
+#----Plate Plot----
     tabPanel("Plate plot",
              titlePanel("Heatmap plot of drug screen plates"),
              sidebarLayout(
+              #----User inputs----#
                sidebarPanel(
                 #Experimenting with Adding to plate plot tab: Allow for edge effect visualizaiton and comparison.
                  tags$div(
@@ -172,7 +175,7 @@ seleDrugUI <- function(id) {
                    bsTooltip("censorLimitBox", "Lower or Upper limits for selected values"), width = 4)
                  # uiOutput("ifCorCheck"))
                ),
-
+  #----Main Panel----#
                mainPanel(tags$style(type="text/css",
                                     ".shiny-output-error { visibility: hidden; }",
                                     ".shiny-output-error:before { visibility: hidden; }"),
@@ -185,10 +188,11 @@ seleDrugUI <- function(id) {
                                 width = 4), width = 8))
     ),
 
-    # Panel 3
+#----Dose-response curves----
     tabPanel("Dose-response curves",
              titlePanel("Plot dose-response curves for selected drugs and samples"),
              sidebarLayout(
+ #----User inputs----#
                sidebarPanel(
                  uiOutput("nameDrugBox"),
                  uiOutput("seleGroupBox"),
@@ -204,7 +208,7 @@ seleDrugUI <- function(id) {
                          plotlyOutput("curvePlot", width = 600, height= 400)
                ))),
 
-    # panel 4
+    #----Clustering----
     tabPanel("Clustering",
              titlePanel("Clustering samples or drugs based on drug response"),
              sidebarLayout(
@@ -249,6 +253,8 @@ seleDrugUI <- function(id) {
                  plotlyOutput("clusterPlot", width = "800px", height = "800px")
                ))),
 
+    #----Association Test----
+
     # Panel 5
     tabPanel("Association test",
              titlePanel("Test associations between drug responses and sample annotations"),
@@ -280,7 +286,7 @@ seleDrugUI <- function(id) {
                          plotlyOutput("diffPlot", width = 500, height = 500))
              )),
 
-    # Panel 6
+    #----Drug Combination Overview----
     tabPanel("Overview of Two-Drug Combination",
              titlePanel("Overview of drug combination effects"),
              sidebarLayout(
@@ -314,7 +320,7 @@ seleDrugUI <- function(id) {
                             "Note: logCI = log10(viabObs / viabExp); viabObs, observed viability; viabExp, expected viability")))
              )),
 
-    # Panel 7
+    #----Drug Combination Effects----
     tabPanel("Drug Combination Effects",
              titlePanel("Combination Effects"),
 
@@ -379,7 +385,7 @@ seleDrugUI <- function(id) {
 
                )
              )),
-    # Panel 8 - Drug Effect Ranking
+    #----Drug Effect Ranking----
     tabPanel("Drug Effect Ranking",
              titlePanel("Drug Effect Ranking"),
              sidebarLayout(
@@ -404,6 +410,3 @@ seleDrugUI <- function(id) {
              ))
   )
 }
-
-
-

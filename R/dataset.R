@@ -52,10 +52,3 @@
 #' @examples
 #' data(screenData_combine_normalized)
 "screenData_combine_normalized"
-
-
-
-
-
-
-
