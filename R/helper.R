@@ -137,7 +137,7 @@ plotEdgeEffect <- function(matPlate, plateList, limits) {
     p <- dplyr::filter(matPlate, fileName == plateName) %>%
       ggplot(aes(x = colID, y = rowID, fill = edgeFactor)) +
       geom_tile(color = "grey80") +
-      labs(x = "", y = "", fill = "viability", title = plateName) +
+      labs(x = "", y = "", fill = "estimated edge effect", title = plateName) +
       theme_void() +
       theme(axis.text  = element_text(size = 6),
             axis.ticks = element_blank(),
@@ -356,16 +356,31 @@ detectClass <- function(x) {
 
 ####----Summarise_Screen_Functions--####
 
+# subset for non-control wells, average for multiple values. 
+subsetDataFrame <- function(dataframe){
+  #Check if normVal.cor column is present
+  ifCor <- "normVal.cor" %in% colnames(dataframe)
+  #Subset for non-control wells
+  subData <- dataframe[dataframe$wellType %in% "sample", ]
+  #
+  subData <- subData |>
+    dplyr::group_by(sampleID, drug, concentration) |>
+    dplyr::summarise(
+      normVal = mean(normVal, na.rm = TRUE),
+      normVal.cor = if (ifCor) mean(normVal.cor, na.rm = TRUE) else NA_real_,
+      .groups = "drop"
+    )
+  subData
+}
+
+
 # Calculate one DSS variant. This is used by the public calcDSS wrapper below.
 calcDSS <- function(value, conc, dssType = "DSS2", threshold = 10) {
-  valid_types <- c("DSS1", "DSS2", "DSS3")
-
-  if (!is.character(dssType) || length(dssType) == 0 || anyNA(dssType)) {
-    stop("dssType must be one or more of 'DSS1', 'DSS2', 'DSS3', or 'all'.")
-  }
+  valid_types <- c("DSS1", "DSS2", "DSS3", "all")
+  checkmate::assert_subset(dssType, valid_types)
   
   if ("all" %in% dssType) {
-    dss_types <- valid_types
+    dss_types <- valid_types[valid_types != "all"]
   } else {
     dss_types <- unique(dssType)
   }
@@ -436,13 +451,8 @@ calcDSS <- function(value, conc, dssType = "DSS2", threshold = 10) {
   
   # Map results
   score_map <- c("DSS1" = dss1, "DSS2" = dss2, "DSS3" = dss3)
-  scores <- score_map[dss_types]
-  
-  if (length(scores) == 1) {
-    unname(scores)
-  } else {
-    scores
-  }
+  #just return all, filter in other function. 
+  score_map
 }
 
 # Function to calculate AUC using linear-log (on X) trapezoidal method

@@ -282,81 +282,54 @@
     normTable <- eventReactive(input$doNorm, {
       req(processedScreenData())
       # Check all values are valid for normalization
-      return(processedScreenData())
-      # if (is.null(input$negWell)){
-      #   showNotification("Need negative drugs for normalization", type = "error")
-      #   return(NULL)
-      # }
-      # if (is.null(input$posWell) && input$method == "NPI"){
-      #   showNotification("Need positive drugs for normalization", type = "error")
-      #   return(NULL)
-      # }
-      # # if the positive well is null, convert to empty list.
-      # posWs <- if (is.null(input$posWell)) character(0) else input$posWell
-      # negWs <- input$negWell #Already checked, cannot be null.
+      if (is.null(input$negWell)){
+        showNotification("Need negative drugs for normalization", type = "error")
+        return(NULL)
+      }
+      if (is.null(input$posWell) && input$method == "NPI"){
+        showNotification("Need positive drugs for normalization", type = "error")
+        return(NULL)
+      }
+      # if the positive well is null, convert to empty list.
+      posWs <- if (is.null(input$posWell)) character(0) else input$posWell
+      negWs <- input$negWell #Already checked, cannot be null.
 
-      # # With drugs known, annotate the data with wellType
-      # df <- addWellType(processedScreenData(),
-      #                   negctrl = negWs,
-      #                   posctrl = posWs,
-      #                   single = !ifDrug2())
+      # With drugs known, annotate the data with wellType
+      df <- addWellType(processedScreenData(),
+                        negctrl = negWs,
+                        posctrl = posWs,
+                        single = !ifDrug2())
 
-      # return(df)
+      showModal(modalDialog("Normalizing ... May take some time.", footer = NULL))
 
-    })
+      tryCatch({
+        #normalize
+        screenData <- normalizePlate(
+          screenData = df,
+          method = input$method,
+          discardLayer = input$discardLayer,
+          bySample = FALSE
+        )
+        # summarize if single drug
+        if (!ifDrug2()) {
+          screenData <- summariseScreen(screenData, method = input$chosenStats)
+        }
 
-    output$normTable_ui <- renderUI({
-      req(normTable())
-      div(class = "table-container table2",
-          h3("Normalized Values"),
-          DT::DTOutput("normTable")
-      )
-    })
+        removeModal()
 
-    output$normTable <- DT::renderDT({
-      req(normTable())
+        return(screenData)
 
-      DT::datatable(
-        normTable(),
-        filter = "top",
-        rownames = FALSE,
-        style = "bootstrap",
-      )
+      },
+      error = function(e) {
+        removeModal()
+        showNotification(paste("Error:", e$message), type = "error")
+        return(NULL)
+      })
+
     })
 
     # When button is pressed, perform normalization and summarization of data
     # observeEvent(input$doNorm, {
-
-    #   req(processedScreenData())
-    #   warningMessage(NULL)  # Reset warning message
-
-    #   if (ifDrug2()) {
-    #     # Both drug_drug2 amd drug2_drug work
-    #     combs <- paste0(processedScreenData()$drug, "_",
-    #                     processedScreenData()$drug2)
-    #     # screenData0, data before screenData
-    #     screenData0 <- dplyr::mutate(processedScreenData(),
-    #                                  wellType = case_when(combs %in% negWs ~ "neg",
-    #                                                       combs %in% posWs ~ "pos",
-    #                                                       .default = "sample"))
-    #   } else {
-    #     screenData0 <- dplyr::mutate(processedScreenData(),
-    #                                  wellType = case_when(drug %in% negWs ~ "neg",
-    #                                                       drug %in% posWs ~ "pos",
-    #                                                       .default = "sample"))
-    #   }
-
-    #   # Normalize data
-    #   if (input$method == "negatives" && length(negWs) == 0) {
-    #     warningMessage("Need negative drugs for normalization")
-    #     return()
-    #   }
-
-    #   if (input$method == "NPI" &&
-    #     (length(negWs) == 0 || length(posWs) == 0)) {
-    #     warningMessage("Need negative and positive drugs for normalization")
-    #     return()
-    #   }
 
     #   showModal(modalDialog("Normalizing ... May take some time.", footer = NULL))
 
@@ -460,6 +433,27 @@
       div(class = "table-container table1",
           h3("Sample Overview"),
           DT::DTOutput("sampleInfo")
+      )
+    })
+
+    #Render header information for normalized data table
+    output$normTable_ui <- renderUI({
+      req(normTable())
+      div(class = "table-container table2",
+          h3("Normalized Values"),
+          DT::DTOutput("normTable")
+      )
+    })
+
+    # Render normalized data talble.
+    output$normTable <- DT::renderDT({
+      req(normTable())
+
+      DT::datatable(
+        normTable(),
+        filter = "top",
+        rownames = FALSE,
+        style = "bootstrap",
       )
     })
 

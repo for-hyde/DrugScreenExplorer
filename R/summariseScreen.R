@@ -86,214 +86,123 @@
 summariseScreen <- function(screenData,
                             method = c("average", "AUC", "IC50", "DSS"),
                             minConc = 0, maxConc = 15,
-                            dssType = "DSS2", dssThreshold = 10) {
+                            dssType = "all", dssThreshold = 10) {
 
   # check if necessary columns are present in the input data
   if (!all(c("drug", "concentration", "sampleID", "wellType", "normVal") %in% colnames(screenData))) {
     stop("screenData must contain: sampleID, drug, concentration, wellType, and normVal.")
   }
+  checkmate::assert_subset(method, c("average", "AUC",
+                           "IC50", "DSS"))
 
-  # Ensure method name is valid
-  valid_methods <- c("average", "AUC", "IC50", "DSS")
+  #DSS logic
+  if ("DSS" %in% method) {
+    valid_types <- c("DSS1", "DSS2", "DSS3", "all")
+    checkmate::assert_subset(dssType, valid_types)
+    if ("all" %in% dssType) {
+      dss_types <- valid_types[valid_types != "all"]
+    } else {
+      dss_types <- unique(dssType)
+    }
+    #Flag for DSS Calculation
+    useDSS <- TRUE
+  } else useDSS <- FALSE
 
-  if (!is.character(method) ||
-      length(method) == 0 ||
-      anyNA(method) ||
-      any(!method %in% valid_methods)) {
-    stop("method must contain one or more valid method names.")
-  }
-  
-  valid_dss_types <- c("DSS1", "DSS2", "DSS3")
-  if (!is.character(dssType) || length(dssType) == 0 || anyNA(dssType)) {
-    stop("Invalid DSS type. Choose one or more of 'DSS1', 'DSS2', 'DSS3', or 'all'.")
-  }
-  if ("all" %in% dssType) {
-    dss_types <- valid_dss_types
-  } else {
-    dss_types <- unique(dssType)
-  }
-  if (any(!dss_types %in% valid_dss_types)) {
-    stop("Invalid DSS type. Choose one or more of 'DSS1', 'DSS2', 'DSS3', or 'all'.")
-  }
+  checkmate::assert_numeric(minConc, lower = 0,finite = TRUE, len = 1)
+  checkmate::assert_numeric(maxConc, lower = 0, finite = TRUE, len = 1)
+  checkmate::assert_numeric(dssThreshold, lower = 0,
+                            upper = 100, finite = TRUE, len = 1)
 
-  if (length(dssThreshold) != 1 ||
-      !is.numeric(dssThreshold) ||
-      !is.finite(dssThreshold) ||
-      dssThreshold < 0 ||
-      dssThreshold >= 100) {
-    stop("dssThreshold must be one finite numeric value in [0, 100).")
+  #If dual drug screening, find unique drugs, return modified dataframe. 
+  if ("drug2" %in% colnames(screenData)) {
+    screenData <- findSingleDrugConditions(screenData)
   }
-
-
-  # Check if the 'normVal.cor' column is present
+  # Flag for if corrected viability values ar present.
   ifCor <- "normVal.cor" %in% colnames(screenData)
 
-  # Only summarize the non-control wells
-  subData <- screenData[screenData$wellType %in% "sample", ]
+  # Subset the input, average for multiple replicates
+  subData <- subsetDataFrame(screenData)
 
-  # get the mean by concentration
   # drug combinations or single drug
-  if (ifCor) {
-    subData <- subData %>%
-      group_by(sampleID, drug, concentration) %>%
-      summarise(viab = mean(normVal, na.rm = TRUE),
-                viab.cor = mean(normVal.cor, na.rm = TRUE)) %>%
-      ungroup()
-  } else {
-    subData <- subData %>%
-      group_by(sampleID, drug, concentration) %>%
-      summarise(viab = mean(normVal, na.rm = TRUE)) %>%
-      ungroup()
-  }
+  # 1. Group the data once
+  grouped_subData <- subData |>
+    dplyr::group_by(sampleID, drug)
 
-  # summarize average, IC50 and AUC
-  # drug combinations or single drug
-  grouped_subData <- subData %>%
-    group_by(sampleID, drug)
+  # 2. Run the summarisation directly with inline conditions
+  sumTab <- grouped_subData |>
+    dplyr::reframe(
+      # Average calculations
+      meanViab     = if ("average" %in% method) mean(normVal, na.rm = TRUE) else NA_real_,
+      meanViab.cor = if ("average" %in% method && ifCor && "normVal.cor" %in% colnames(subData)) {
+                      mean(normVal.cor, na.rm = TRUE)
+                    } else {
+                      NA_real_
+                    },
+      
+      # IC50 calculation (using normVal)
+      if ("IC50" %in% method) {
+              tryCatch(
+                sumIC50(normVal ~ concentration, 
+                  data = dplyr::cur_data(), minConc = minConc, maxConc = maxConc) |>
+                dplyr::select(IC50, AUC) |>
+                dplyr::rename(IC50 = IC50, IC50AUC = AUC),
+                error = function(e) NA_real_
+              )
+            } else {
+              NA_real_
+            },
+      if ("IC50" %in% method && ifCor && "normVal.cor" %in% colnames(subData)) {
+                  tryCatch(
+                    sumIC50(normVal.cor ~ concentration, 
+                      data = dplyr::cur_data(), minConc = minConc, maxConc = maxConc)|>
+                    dplyr::select(IC50, AUC) |>
+                    dplyr::rename(IC50.cor = IC50, IC50AUC.cor = AUC),
+                    error = function(e) NA_real_
+                  )
+                } else {
+                  NA_real_
+                },
+                
+      # AUC calculation (using normVal)
+      AUC = if ("AUC" %in% method) calcAUC(normVal, concentration) else NA_real_,
+      AUC.cor = if ("AUC" %in% method && ifCor && "normVal.cor" %in% colnames(subData)){
+                  tryCatch(
+                    calcAUC(normVal.cor, concentration),
+                    error = function(e) NA_real_
+                  )
+                } else {
+                  NA_real_
+                },
+    ) |>
+    dplyr::select(where(~ !all(is.na(.)))) |>
+    dplyr::ungroup()
 
-  # "average" in method
-  if ("average" %in% method) {
-    # if normVal.cor is available
-    if (ifCor) {
-      sumTab <- grouped_subData %>%
-        dplyr::summarise(meanViab = mean(viab, na.rm = TRUE),
-                         meanViab.cor = mean(viab.cor, na.rm = TRUE)) %>%
-        ungroup()
-    } else {
-      sumTab <- grouped_subData %>%
-        dplyr::summarise(meanViab = mean(viab, na.rm = TRUE)) %>%
-        ungroup()
-    }
+    subData <- subData |>
+      dplyr::left_join(sumTab, by = c("sampleID", "drug"))
 
-    # Remove existing 'meanViab' column if it already exists in the input data
-    if ("meanViab" %in% colnames(screenData))
-      screenData[["meanViab"]] <- NULL
-
-    if ("meanViab.cor" %in% colnames(screenData))
-      screenData[["meanViab.cor"]] <- NULL
-
-    # Join the summarized data back to the original data
-    screenData <- left_join(screenData, sumTab, by = c("sampleID", "drug"))
-  }
-
-  # "AUC" in method
-  if ("AUC" %in% method) {
-    if (ifCor) {
-      sumTab <- grouped_subData %>%
-        dplyr::summarise(AUC = calcAUC(viab, concentration),
-                         AUC.cor = calcAUC(viab.cor, concentration)) %>%
-        ungroup()
-    } else {
-      sumTab <- grouped_subData %>%
-        dplyr::summarise(AUC = calcAUC(viab, concentration)) %>%
-        ungroup()
-    }
-
-    # Remove existing 'AUC' and 'AUC.cor' column if it already exists in the input data
-    if ("AUC" %in% colnames(screenData)){
-      screenData[["AUC"]] <- NULL
-    }
-
-    if ("AUC.cor" %in% colnames(screenData)){
-      screenData[["AUC.cor"]] <- NULL
-    }
-
-    screenData <- left_join(screenData, sumTab, by = c("sampleID", "drug"))
-  }
-
-  # "IC50" in method
-  if ("IC50" %in% method) {
-    # Group and nest the data for IC50 calculation
-    sumTab <- grouped_subData %>%
-      tidyr::nest() %>%
+  if (useDSS) {
+    subData <- subData |>
+      dplyr::group_by(sampleID, drug) |>
       dplyr::mutate(
-        model = purrr::map(data, ~ sumIC50(viab ~ concentration,
-                                           data = .,
-                                           minConc = minConc,
-                                           maxConc = maxConc))) %>%
-      tidyr::unnest("model") %>%
-      ungroup()
+        tryCatch({
+          res <- calcDSS(normVal, concentration, dssType = dssType, threshold = dssThreshold)
+          tibble::tibble(
+            DSS1 = if ("DSS1" %in% dss_types) res["DSS1"] else NA_real_,
+            DSS2 = if ("DSS2" %in% dss_types) res["DSS2"] else NA_real_,
+            DSS3 = if ("DSS3" %in% dss_types) res["DSS3"] else NA_real_
+          )
+        },
+          error = function(e) c(DSS1 = NA_real_, DSS2 = NA_real_, DSS3 = NA_real_)
+        )
+      ) |>
+      dplyr::ungroup() |>
+      dplyr::select(where(~ !all(is.na(.))))
 
-    sumTab$data <- NULL
-
-    if (ifCor) {
-      sumTab.cor <- grouped_subData %>%
-        tidyr::nest() %>%
-        dplyr::mutate(
-          model = purrr::map(data, ~ sumIC50(viab.cor ~ concentration,
-                                             data = .,
-                                             minConc = minConc,
-                                             maxConc = maxConc))) %>%
-        tidyr::unnest("model") %>%
-        ungroup()
-
-      sumTab.cor$data <- NULL
-      newColName <- colnames(sumTab.cor)
-      newColName[!newColName %in% c("sampleID", "drug")] <-
-        paste0(newColName[!newColName %in% c("sampleID", "drug")], ".cor")
-
-      colnames(sumTab.cor) <- newColName
-      sumTab <- left_join(sumTab, sumTab.cor, by = c("sampleID", "drug"))
-    }
-
-    # remove existing columns
-    for (colN in c("UpperLimit", "IC50", "Slope", "LowerLimit", "AUC")) {
-      if (colN %in% colnames(screenData))
-        screenData[[colN]] <- NULL
-    }
-
-    for (colN in c("UpperLimit.cor", "IC50.cor", "Slope.cor", "LowerLimit.cor",
-                   "AUC.cor")) {
-      if (colN %in% colnames(screenData))
-        screenData[[colN]] <- NULL
-    }
-
-    # Join the summarized IC50 data back to the original data
-    screenData <- left_join(screenData, sumTab, by = c("sampleID", "drug"))
   }
 
-    # Add section for calculating DSS score. FH
-  if ("DSS" %in% method) {
-      dss_columns <- if (length(dss_types) == 1) "DSS" else dss_types
-      dss_tables <- lapply(seq_along(dss_types), function(i) {
-        grouped_subData %>%
-          dplyr::summarise(!!dss_columns[i] :=
-                             calcDSS(viab, concentration,
-                                     dssType = dss_types[i],
-                                     threshold = dssThreshold)) %>%
-        ungroup()
-      })
-      sumTab <- Reduce(function(x, y) left_join(x, y,
-                                                 by = c("sampleID", "drug")),
-                       dss_tables)
 
-      if (ifCor) {
-        dss_cor_tables <- lapply(seq_along(dss_types), function(i) {
-          grouped_subData %>%
-            dplyr::summarise(!!paste0(dss_columns[i], ".cor") :=
-                               calcDSS(viab.cor, concentration,
-                                       dssType = dss_types[i],
-                                       threshold = dssThreshold)) %>%
-            ungroup()
-        })
-        sumTab.cor <- Reduce(function(x, y) left_join(x, y,
-                                                       by = c("sampleID", "drug")),
-                             dss_cor_tables)
-        sumTab <- left_join(sumTab, sumTab.cor, by = c("sampleID", "drug"))
-      }
-
-      for (colN in c(dss_columns, paste0(dss_columns, ".cor"))) {
-        if (colN %in% colnames(screenData))
-          screenData[[colN]] <- NULL
-      }
-
-      screenData <- left_join(screenData, sumTab, by = c("sampleID", "drug"))
-    }
+  return(subData)
 
 
-  return(screenData)
+  screenData
 }
-
-
-
-
