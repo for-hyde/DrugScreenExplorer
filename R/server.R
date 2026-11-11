@@ -64,6 +64,24 @@
 
     screenData <- reactiveVal(NULL)
 
+    attachSummary <- function(wellData, summaryData) {
+      if (is.null(summaryData)) {
+        return(wellData)
+      }
+
+      keys <- c("sampleID", "fileName", "drug", "concentration")
+      summaryColumns <- setdiff(names(summaryData),
+                                c(keys, "normVal", "normVal.cor"))
+
+      dplyr::left_join(
+        wellData |>
+          dplyr::select(-dplyr::any_of(summaryColumns)),
+        summaryData |>
+          dplyr::select(dplyr::all_of(c(keys, summaryColumns))),
+        by = keys
+      )
+    }
+
     # 1.2 User Inputs ----
     # User input for manual data loading
     output$getRange <- renderUI({
@@ -203,7 +221,6 @@
       }
     })
 
-
     # 1.3 Reactive data and calculations ----
     #If no range is supplied, set colRange to NULL, which will trigger automatic parsing.
     columnRange <- reactive({
@@ -237,6 +254,17 @@
                   selected = intersect(c("sampleID", "fileName"), choices),
                   multiple = TRUE,
                   width = "100%")
+    })
+
+    # 1.2.3 Generate QC report
+    output$reportDownload <- renderUI({
+      #Only display option after the data has been normalized
+      req(screenData())
+      downloadButton("downloadQC", "Download QC Report")
+    })
+    output$authorName_ui <- renderUI({
+      req(screenData())
+      textInput("authorName", "Your Name (optional)", value = "")
     })
 
     # 1.4 Event observers and logical controls ----
@@ -327,26 +355,27 @@
 
       tryCatch({
         #normalize
-        screenData <- normalizePlate(
+        normalizedData <- normalizePlate(
           screenData = df,
           method = input$method,
           discardLayer = input$discardLayer,
           bySample = FALSE
         )
-        # summarize if single drug
-        if (!ifDrug2()) {
-          screenData <- summariseScreen(
-            screenData, method = input$chosenStats,
+        summaryData <- NULL
+        if (!ifDrug2() && length(input$chosenStats) > 0) {
+          summaryData <- summariseScreen(
+            normalizedData, method = input$chosenStats,
             dssType = if (is.null(input$dssType)) "DSS2" else input$dssType,
             dssThreshold = if (is.null(input$dssThreshold)) 0.1 else input$dssThreshold
           )
         }
 
-        screenData(screenData)
+        normalizedData <- attachSummary(normalizedData, summaryData)
+        screenData(normalizedData)
 
         removeModal()
 
-        return(screenData)
+        return(normalizedData)
 
       },
       error = function(e) {
@@ -357,75 +386,33 @@
 
     })
 
-    # When button is pressed, perform normalization and summarization of data
-    # observeEvent(input$doNorm, {
+    # Make QC report
+    output$downloadQC <- downloadHandler(
+      filename = function () {
+        "QC_report.html"
+      },
+      content = function(file) {
+        tmpdir <- tempfile("drug-screen-report-")
+        dir.create(tmpdir, recursive = TRUE)
+        on.exit(unlink(tmpdir, recursive = TRUE, force = TRUE), add = TRUE)
 
-    #   showModal(modalDialog("Normalizing ... May take some time.", footer = NULL))
+        norm_data <- screenData()
+        report_file <- makeReport(
+          screenData = norm_data,
+          dir = tmpdir,
+          author = ifelse(is.null(input$authorName) || input$authorName == "", "Author Name", input$authorName)
+        )
 
-    #   normalizationSucceeded <- FALSE
-    #   tryCatch({
-    #     screenData0 <- normalizePlate(
-    #       screenData0,
-    #       method = input$method,
-    #       discardLayer = input$discardLayer,
-    #       bySample = FALSE
-    #     )
-
-    #     if (!ifDrug2()) {
-    #       screenData0 <- summariseScreen(screenData0,
-    #                                      method = summaryStats())
-    #     }
-
-    #     screenData(screenData0)
-    #     normalizationSucceeded <- TRUE
-    #   }, error = function(e) {
-    #     warningMessage(paste("Error:", e$message))
-    #   })
-
-    #   removeModal()
-    #   if (!normalizationSucceeded)
-    #     return()
-    # })
-
-    # output$warningMessage <- renderText({
-    #   warningMessage()
-    # })
-
-    # # output normalize data
-    # normData <- reactive({
-
-    #   if(ifDrug2())
-    #     addDurgCol <- c("drug", "drug2")
-    #   else
-    #     addDurgCol <- "drug"
-
-    #   req(screenData())
-    #   selRows <- input$sampleInfo_row_last_clicked
-    #   selectedPlates <- as.character(infoTableRaw()[selRows, ] %>%
-    #                                    pull(fileName))
-
-    #   if(length(selectedPlates) == 0)
-    #     selectedPlates <- infoTableRaw() %>% pull(fileName)
-
-    #   selectedPlates <- unique(selectedPlates)
-
-    #   normTable <- screenData() %>%
-    #     filter(fileName %in% selectedPlates) %>%
-    #     #Adding WellLabel column to DF (required for report) FH
-    #     mutate(
-    #       .drug_combination = if(ifDrug2()) paste0(drug, "_", drug2) else drug,
-    #       wellType = case_when(
-    #         .drug_combination %in% input$negWell ~ "neg",
-    #         .drug_combination %in% input$posWell ~ "pos",
-    #         TRUE                                 ~ "sample"
-    #       )
-    #     ) %>%
-    #     dplyr::select(any_of(c("sampleID", "fileName", "wellID", "rowID", "colID",
-    #                            "wellType", addDurgCol, input$sampleAnnotations_norm, "value",
-    #                            "normVal", "normVal.cor")))
-    #   return(normTable)
-    # })
-
+        copied <- file.copy(
+          from = report_file,
+          to = file,
+          overwrite = TRUE
+        )
+        if (!isTRUE(copied)) {
+          stop("The generated QC report could not be copied to the download path")
+        }
+      }
+    )
 
     # 1.5 Outputs and Plots ----
     # Select metadata columns based on sampleAnnotation input
@@ -500,92 +487,36 @@
         processedScreenData()$message
     })
 
-    ## 1.2.3 Generate QC report
-    # output$reportDownload <- renderUI({
-    #   #Only display option after the data has been normalized
-    #   req(normData())
-    #   downloadButton("downloadQC", "Download QC Report")
-    # })
-    # output$authorName_ui <- renderUI({
-    #   req(normData())
-    #   textInput("authorName", "Your Name (optional)", value = "")
-    # })
-
-    # # Make QC report
-    # output$downloadQC <- downloadHandler(
-    #   filename = function () {
-    #     "QC_report.html"
-    #   },
-    #   content = function(file) {
-    #     tmpdir <- tempfile("drug-screen-report-")
-    #     dir.create(tmpdir, recursive = TRUE)
-    #     on.exit(unlink(tmpdir, recursive = TRUE, force = TRUE), add = TRUE)
-
-    #     norm_data <- normData()
-    #     report_file <- makeReport(
-    #       screenData = norm_data,
-    #       dir = tmpdir,
-    #       author = ifelse(is.null(input$authorName) || input$authorName == "", "Author Name", input$authorName)
-    #     )
-
-    #     copied <- file.copy(
-    #       from = report_file,
-    #       to = file,
-    #       overwrite = TRUE
-    #     )
-    #     if (!isTRUE(copied)) {
-    #       stop("The generated QC report could not be copied to the download path")
-    #     }
-    #   }
-    # )
-
-    #-----------------------------------------------------------------------------
-    # 1.3 adjust incubation effect
-    # Placement should be adjusted?? -FH
-    # Span controls
-
-
-
-    output$useNegControls <- renderUI({
-      #Must have screen Data to load drug names
-      req(screenData())
-
-      #Extract relevant parameters for population
-      conc_df <- screenData()
-      max_conc <- max(conc_df$concentration, na.rm = TRUE)
-      if (ifDrug2()) {
-        # All drug names
-        drug_names <- unique(c(conc_df$drug, conc_df$drug2))
-      } else {
-        drug_names <- unique(conc_df$drug)
-      }
-
-      if (!isTRUE(input$useNeg)) {
-        tagList(
-          numericInput("useLowConcentrations",
-                       "Threshold for lowest concetrations to include in estimation",
-                       value = 0,
-                       min = 0,
-                       max = max_conc),
-          selectInput("exclude", 
-                      "Drugs to exclude from edge effect estimation",
-                      choices = drug_names,
-                      multiple = TRUE)
-        )
-      }
-    })
-
+####2.Plate Plot####
+####2.1 Constants and configuration####
     screenData_fitted <- reactiveVal(NULL)
     correctEdgeEffectError <- reactiveVal(NULL)
 
-    output$correctEdgeEffect_message <- renderText({
-      error <- correctEdgeEffectError()
 
-      if (!is.null(error)) {
-        paste("Error:", error)
-      }
+####2.2 User Inputs####
+    # Dynamically generate UI for column selection
+    output$column_selector_normTable_ui <- renderUI({
+
+      req(screenData())
+      if(ifDrug2())
+        addDurgCol <- c("drug", "drug2")
+      else
+        addDurgCol <- "drug"
+
+      choices <- setdiff(colnames(screenData()),
+                         c("sampleID", "fileName", "wellID", "rowID", "colID",
+                           addDurgCol, "value", "normVal", "normVal.cor"))
+      selectInput("sampleAnnotations_norm",
+                  "Select well information to display:",
+                  choices = choices,
+                  multiple = TRUE,
+                  width = "100%")
     })
 
+
+####2.3 Reactive data and calculations####
+
+####2.4 Event observers and logical controls####
     observeEvent(input$doCorrEdge, {
 
       req(screenData())
@@ -622,32 +553,33 @@
 
       fitted <- fitted[, !names(fitted) %in% rmCols, drop = FALSE]
 
-      fitted <- summariseScreen(fitted,
-                                 method = c("average", "AUC", "IC50", "DSS"),
-                                 dssType = "all")
+      summaryData <- if (!ifDrug2()) {
+        summariseScreen(fitted,
+                        method = c("average", "AUC", "IC50", "DSS"),
+                        dssType = "all")
+      } else {
+        NULL
+      }
+      fitted <- attachSummary(fitted, summaryData)
       screenData_fitted(fitted)
       screenData(fitted)
 
     })
 
-    # Dynamically generate UI for column selection
-    output$column_selector_normTable_ui <- renderUI({
 
-      req(screenData())
-      if(ifDrug2())
-        addDurgCol <- c("drug", "drug2")
-      else
-        addDurgCol <- "drug"
+####2.5 Outputs and Plots####
 
-      choices <- setdiff(colnames(screenData()),
-                         c("sampleID", "fileName", "wellID", "rowID", "colID",
-                           addDurgCol, "value", "normVal", "normVal.cor"))
-      selectInput("sampleAnnotations_norm",
-                  "Select well information to display:",
-                  choices = choices,
-                  multiple = TRUE,
-                  width = "100%")
+####2.6 Warnings, notifications, and messages####
+    output$correctEdgeEffect_message <- renderText({
+      error <- correctEdgeEffectError()
+
+      if (!is.null(error)) {
+        paste("Error:", error)
+      }
     })
+    #-----------------------------------------------------------------------------
+
+
 
 
     ##############################################################################
@@ -897,14 +829,15 @@
                                      name = input$ifNorm)
       }
 
-      ggplotly(p) %>%
+      ggplotly(p, source = "A") %>%
+        event_register("plotly_click") %>%
         config(displayModeBar = FALSE)
     })
 
     ## a table for selected plate and well information
     output$infoTab <- DT::renderDT({
 
-      s <- event_data("plotly_click")
+      s <- event_data("plotly_click", source = "A")
       # Add potential interesting columns that may or may not exist
 
       addCol <- intersect(c("drug", "drug2", "wellType", "concentration",
@@ -931,7 +864,7 @@
       if (any(!c("drug", "concentration") %in% colnames(plotTab()))) {
         NULL
       } else {
-        s <- event_data("plotly_click")
+        s <- event_data("plotly_click", source = "A")
         drugName <- unique(filter(plotTab(),
                                   rowID == levels(plotTab()$rowID)[s$y],
                                   colID == levels(plotTab()$colID)[s$x])$drug)
@@ -955,7 +888,7 @@
 
       } else {
 
-        s <- event_data("plotly_click")
+        s <- event_data("plotly_click", source = "A")
 
         if (!ifDrug2()) {
           drugName <- unique(filter(plotTab(),

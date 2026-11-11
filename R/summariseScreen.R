@@ -114,9 +114,9 @@ summariseScreen <- function(screenData,
                             upper = 100, finite = TRUE, len = 1)
 
   #If dual drug screening, find unique drugs, return modified dataframe. 
-  if ("drug2" %in% colnames(screenData)) {
-    screenData <- findSingleDrugConditions(screenData)
-  }
+  # if ("drug2" %in% colnames(screenData)) {
+  #   screenData <- findSingleDrugConditions(screenData)
+  # }
   # Flag for if corrected viability values ar present.
   ifCor <- "normVal.cor" %in% colnames(screenData)
 
