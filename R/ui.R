@@ -82,6 +82,9 @@ seleDrugUI <- function(id) {
                    uiOutput("selWells"),
                    bsTooltip("selWells", "Specifies negative /positive control wells"),
                    uiOutput("statisticsUI"),
+                   bsTooltip("statisticsUI", "A selection of what summary statistics to use for each plate."),
+                   uiOutput("dssUI"),
+                   bsTooltip("dssUI", "A selection of what DSS score to use for each plate. DSS1, DSS2, and DSS3 are three different types of DSS scores. The default is DSS2."),
                    bsTooltip("statisticsUI", "A selection of what summary statistics to use
                    for each plate."),
                    actionButton("doNorm", "Normalize", align = "center"),

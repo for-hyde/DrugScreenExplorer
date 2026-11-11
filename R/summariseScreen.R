@@ -126,7 +126,7 @@ summariseScreen <- function(screenData,
   # drug combinations or single drug
   # 1. Group the data once
   grouped_subData <- subData |>
-    dplyr::group_by(sampleID, drug)
+    dplyr::group_by(sampleID, fileName, drug)
 
   # 2. Run the summarisation directly with inline conditions
   sumTab <- grouped_subData |>
@@ -178,7 +178,7 @@ summariseScreen <- function(screenData,
     dplyr::ungroup()
 
     subData <- subData |>
-      dplyr::left_join(sumTab, by = c("sampleID", "drug"))
+      dplyr::left_join(sumTab, by = c("sampleID", "fileName", "drug"))
 
   if (useDSS) {
     subData <- subData |>

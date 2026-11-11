@@ -62,6 +62,8 @@
       "drug2" %in% colnames(processedScreenData())
     })
 
+    screenData <- reactiveVal(NULL)
+
     # 1.2 User Inputs ----
     # User input for manual data loading
     output$getRange <- renderUI({
@@ -168,18 +170,39 @@
         c(
           "Inhibitory Concentration 50 (IC50)" = "IC50",
           "Area under the curve(AUC)" = "AUC",
-          "Drug Sensitivity Score (DSS)" = "DSS1",
-          "Concentration adjusted DSS (DSS2)" = "DSS2",
-          "Emphasized potency DSS (DSS3)" = "DSS3"
+          "Drug Sensitivity Score (DSS)" = "DSS"
         )
       )
     })
-
-    ######DELETE, BUT ENSURE CALLS ARE CHANGED FIRST###
-    summaryStats <- reactive({
+    # DSS type selection UI
+    output$dssUI <- renderUI({
       req(input$chosenStats)
-      input$chosenStats
+      if ("DSS" %in% input$chosenStats) {
+        tagList(
+        checkboxGroupInput(
+          "dssType", 
+          "Select DSS type",
+                    choices = c("DSS1", "DSS2", "DSS3"),
+                    selected = "DSS1"),
+        numericInput("dssThreshold", "DSS threshold",
+                     value = 10,
+                     min = 0,
+                     max = 100,
+                     step = 1)
+        )
+      } 
     })
+
+    output$span <- renderUI({
+      req(screenData())
+      if (input$estimateMethod == "loess"){
+        tagList(
+          numericInput("span", "Span parameter for loess", value = 1, min = 0.1, step = 0.1),
+          bsTooltip("span", "Controls the degree of smoothing of loess")
+        )
+      }
+    })
+
 
     # 1.3 Reactive data and calculations ----
     #If no range is supplied, set colRange to NULL, which will trigger automatic parsing.
@@ -283,11 +306,11 @@
       req(processedScreenData())
       # Check all values are valid for normalization
       if (is.null(input$negWell)){
-        showNotification("Need negative drugs for normalization", type = "error")
+        showNotification("Need negative for normalization", type = "error")
         return(NULL)
       }
       if (is.null(input$posWell) && input$method == "NPI"){
-        showNotification("Need positive drugs for normalization", type = "error")
+        showNotification("Need positive for normalization", type = "error")
         return(NULL)
       }
       # if the positive well is null, convert to empty list.
@@ -312,8 +335,14 @@
         )
         # summarize if single drug
         if (!ifDrug2()) {
-          screenData <- summariseScreen(screenData, method = input$chosenStats)
+          screenData <- summariseScreen(
+            screenData, method = input$chosenStats,
+            dssType = if (is.null(input$dssType)) "DSS2" else input$dssType,
+            dssThreshold = if (is.null(input$dssThreshold)) 0.1 else input$dssThreshold
+          )
         }
+
+        screenData(screenData)
 
         removeModal()
 
@@ -470,147 +499,6 @@
       if (!is.null(processedScreenData()$message))
         processedScreenData()$message
     })
-####################################################
-
-    #-----------------------------------------------------------------------------
-    # 1.2 normalization section
-
-    # define the well type information
-    # screenData is the normalized data
-    screenData <- reactiveVal()
-    warningMessage <- reactiveVal() # To store warnings
-    #UI for selecting what to render
-
-    # observeEvent(input$doNorm, {
-
-    #   req(processedScreenData())
-    #   warningMessage(NULL)  # Reset warning message
-
-    #   if (is.null(input$negWell))
-    #     negWs <- c()
-    #   else
-    #     negWs <- input$negWell
-
-    #   if (is.null(input$posWell))
-    #     posWs <- c()
-    #   else
-    #     posWs <- input$posWell
-
-    #   if (ifDrug2()) {
-    #     # Both drug_drug2 amd drug2_drug work
-    #     combs <- paste0(processedScreenData()$drug, "_",
-    #                     processedScreenData()$drug2)
-    #     # screenData0, data before screenData
-    #     screenData0 <- dplyr::mutate(processedScreenData(),
-    #                                  wellType = case_when(combs %in% negWs ~ "neg",
-    #                                                       combs %in% posWs ~ "pos",
-    #                                                       .default = "sample"))
-    #   } else {
-    #     screenData0 <- dplyr::mutate(processedScreenData(),
-    #                                  wellType = case_when(drug %in% negWs ~ "neg",
-    #                                                       drug %in% posWs ~ "pos",
-    #                                                       .default = "sample"))
-    #   }
-
-    #   # Normalize data
-    #   if (input$method == "negatives" && length(negWs) == 0) {
-    #     warningMessage("Need negative drugs for normalization")
-    #     return()
-    #   }
-
-    #   if (input$method == "NPI" &&
-    #     (length(negWs) == 0 || length(posWs) == 0)) {
-    #     warningMessage("Need negative and positive drugs for normalization")
-    #     return()
-    #   }
-
-    #   showModal(modalDialog("Normalizing ... May take some time.", footer = NULL))
-
-    #   normalizationSucceeded <- FALSE
-    #   tryCatch({
-    #     screenData0 <- normalizePlate(
-    #       screenData0,
-    #       method = input$method,
-    #       discardLayer = input$discardLayer,
-    #       bySample = FALSE
-    #     )
-
-    #     if (!ifDrug2()) {
-    #       screenData0 <- summariseScreen(screenData0,
-    #                                      method = summaryStats())
-    #     }
-
-    #     screenData(screenData0)
-    #     normalizationSucceeded <- TRUE
-    #   }, error = function(e) {
-    #     warningMessage(paste("Error:", e$message))
-    #   })
-
-    #   removeModal()
-    #   if (!normalizationSucceeded)
-    #     return()
-    # })
-
-    # output$warningMessage <- renderText({
-    #   warningMessage()
-    # })
-
-    # # output normalize data
-    # normData <- reactive({
-
-    #   if(ifDrug2())
-    #     addDurgCol <- c("drug", "drug2")
-    #   else
-    #     addDurgCol <- "drug"
-
-    #   req(screenData())
-    #   selRows <- input$sampleInfo_row_last_clicked
-    #   selectedPlates <- as.character(infoTableRaw()[selRows, ] %>%
-    #                                    pull(fileName))
-
-    #   if(length(selectedPlates) == 0)
-    #     selectedPlates <- infoTableRaw() %>% pull(fileName)
-
-    #   selectedPlates <- unique(selectedPlates)
-
-    #   normTable <- screenData() %>%
-    #     filter(fileName %in% selectedPlates) %>%
-    #     #Adding WellLabel column to DF (required for report) FH
-    #     mutate(
-    #       .drug_combination = if(ifDrug2()) paste0(drug, "_", drug2) else drug,
-    #       wellType = case_when(
-    #         .drug_combination %in% input$negWell ~ "neg",
-    #         .drug_combination %in% input$posWell ~ "pos",
-    #         TRUE                                 ~ "sample"
-    #       )
-    #     ) %>%
-    #     dplyr::select(any_of(c("sampleID", "fileName", "wellID", "rowID", "colID",
-    #                            "wellType", addDurgCol, input$sampleAnnotations_norm, "value",
-    #                            "normVal", "normVal.cor")))
-    #   return(normTable)
-    # })
-
-    # # DT table for showing the sample annotations and filtering
-    # output$normTable <- DT::renderDT({
-
-    #   req(normData())
-    #   normData_new <- mutate_if(normData(), is.character, as.factor) %>%
-    #     mutate(across(starts_with("normVal"), ~ format(round(.x, 3), nsmall = 3)))
-
-    #   DT::datatable(normData_new,
-    #                 filter = "top",
-    #                 rownames = FALSE,
-    #                 selection = 'none',
-    #                 style = "bootstrap")
-    # })
-
-    # output$normTable_ui <- renderUI({
-    #   req(normData())
-    #   div(class = "table-container table2",
-    #       h3("Normalized Values"),
-    #       DT::DTOutput("normTable")
-    #   )
-    # })
 
     ## 1.2.3 Generate QC report
     # output$reportDownload <- renderUI({
@@ -655,15 +543,7 @@
     # 1.3 adjust incubation effect
     # Placement should be adjusted?? -FH
     # Span controls
-    output$span <- renderUI({
-      req(screenData())
-      if (input$estimateMethod == "loess"){
-        tagList(
-          numericInput("span", "Span parameter for loess", value = 1, min = 0.1, step = 0.1),
-          bsTooltip("span", "Controls the degree of smoothing of loess")
-        )
-      }
-    })
+
 
 
     output$useNegControls <- renderUI({

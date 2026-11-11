@@ -364,7 +364,7 @@ subsetDataFrame <- function(dataframe){
   subData <- dataframe[dataframe$wellType %in% "sample", ]
   #
   subData <- subData |>
-    dplyr::group_by(sampleID, drug, concentration) |>
+    dplyr::group_by(sampleID, fileName, drug, concentration) |>
     dplyr::summarise(
       normVal = mean(normVal, na.rm = TRUE),
       normVal.cor = if (ifCor) mean(normVal.cor, na.rm = TRUE) else NA_real_,
