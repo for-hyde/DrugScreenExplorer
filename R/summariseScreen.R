@@ -16,11 +16,10 @@
 #'  The average method calculates the average drug effect across all concentrations.
 #'  The AUC method calculates the normalized area under the dose-response curve
 #'  using the trapezoidal method.
-#'  The IC50 method first fits a robust four-parameter log-logistic model using
-#'  the dr4pl package. Then, it summarizes the drug effect using the four
-#'  parameters (upper limit, lower limit, slope, and IC50/EC50) and area under
-#'  the sigmoid curve.You can use multiple methods simultaneously by specifying
-#'  a vector of method names.
+#' the IC50 method fits a robust four-parameter log-logistic model using
+#' the dr4pl package and returns the IC50/EC50 score and the area under the
+#' fitted sigmoid curve. You can use multiple methods simultaneously by
+#' specifying a vector of method names.
 #'@param minConc, lower bound of concentrations for the integration of area
 #'under curve. Used for method = "IC50". See \code{sumIC50()}.
 #'@param maxConc, upper bound of concentrations for the integration of area
@@ -48,12 +47,9 @@
 #'
 #' If \code{method = 'IC50'}
 #'
-#' \item{UpperLimit}{the upper limit of the fitted logistic model}
 #' \item{IC50}{the half maximal inhibitory concentration (IC50), or the half
 #' maximal effective concentration (EC50), depends on the type of input data}
-#' \item{Slope}{the slope of the fitted logistic model}
-#' \item{lowerLimit}{the upper limit of the fitted logistic model}
-#' \item{AUC}{the area under the fitted sigmoid doese-response curve}
+#' \item{IC50AUC}{the area under the fitted sigmoid dose-response curve}
 #'
 #' If the logistic model can not be fitted for a certain drug, the above four
 #' values will be set to NA.
@@ -86,7 +82,7 @@
 summariseScreen <- function(screenData,
                             method = c("average", "AUC", "IC50", "DSS"),
                             minConc = 0, maxConc = 15,
-                            dssType = "all", dssThreshold = 10) {
+                            dssType = "DSS2", dssThreshold = 10) {
 
   # check if necessary columns are present in the input data
   if (!all(c("drug", "concentration", "sampleID", "wellType", "normVal") %in% colnames(screenData))) {
@@ -123,86 +119,106 @@ summariseScreen <- function(screenData,
   # Subset the input, average for multiple replicates
   subData <- subsetDataFrame(screenData)
 
-  # drug combinations or single drug
-  # 1. Group the data once
-  grouped_subData <- subData |>
-    dplyr::group_by(sampleID, fileName, drug)
+  # Summarise each sample/drug/file group into one row.
+  sumTab <- subData |>
+    dplyr::group_by(sampleID, fileName, drug) |>
+    dplyr::group_modify(~ {
+      data <- .x
+      result <- list()
 
-  # 2. Run the summarisation directly with inline conditions
-  sumTab <- grouped_subData |>
-    dplyr::reframe(
-      # Average calculations
-      meanViab     = if ("average" %in% method) mean(normVal, na.rm = TRUE) else NA_real_,
-      meanViab.cor = if ("average" %in% method && ifCor && "normVal.cor" %in% colnames(subData)) {
-                      mean(normVal.cor, na.rm = TRUE)
-                    } else {
-                      NA_real_
-                    },
-      
-      # IC50 calculation (using normVal)
+      if ("average" %in% method) {
+        result$meanViab <- mean(data$normVal, na.rm = TRUE)
+        if (ifCor) {
+          result$meanViab.cor <- mean(data$normVal.cor, na.rm = TRUE)
+        }
+      }
+
+      if ("AUC" %in% method) {
+        result$AUC <- tryCatch(
+          calcAUC(data$normVal, data$concentration),
+          error = function(e) NA_real_
+        )
+        if (ifCor) {
+          result$AUC.cor <- tryCatch(
+            calcAUC(data$normVal.cor, data$concentration),
+            error = function(e) NA_real_
+          )
+        }
+      }
+
       if ("IC50" %in% method) {
-              tryCatch(
-                sumIC50(normVal ~ concentration, 
-                  data = dplyr::cur_data(), minConc = minConc, maxConc = maxConc) |>
-                dplyr::select(IC50, AUC) |>
-                dplyr::rename(IC50 = IC50, IC50AUC = AUC),
-                error = function(e) NA_real_
-              )
-            } else {
-              NA_real_
-            },
-      if ("IC50" %in% method && ifCor && "normVal.cor" %in% colnames(subData)) {
-                  tryCatch(
-                    sumIC50(normVal.cor ~ concentration, 
-                      data = dplyr::cur_data(), minConc = minConc, maxConc = maxConc)|>
-                    dplyr::select(IC50, AUC) |>
-                    dplyr::rename(IC50.cor = IC50, IC50AUC.cor = AUC),
-                    error = function(e) NA_real_
-                  )
-                } else {
-                  NA_real_
-                },
-                
-      # AUC calculation (using normVal)
-      AUC = if ("AUC" %in% method) calcAUC(normVal, concentration) else NA_real_,
-      AUC.cor = if ("AUC" %in% method && ifCor && "normVal.cor" %in% colnames(subData)){
-                  tryCatch(
-                    calcAUC(normVal.cor, concentration),
-                    error = function(e) NA_real_
-                  )
-                } else {
-                  NA_real_
-                },
-    ) |>
+        fit <- tryCatch(
+          sumIC50(normVal ~ concentration, data = data,
+                  minConc = minConc, maxConc = maxConc),
+          error = function(e) NULL
+        )
+        fit_values <- if (is.null(fit)) {
+          setNames(as.list(c(NA_real_, NA_real_)),
+                   c("IC50", "IC50AUC"))
+        } else {
+          setNames(as.list(fit[c("IC50", "AUC")]),
+                   c("IC50", "IC50AUC"))
+        }
+        result <- c(result, fit_values)
+
+        if (ifCor) {
+          fit_cor <- tryCatch(
+            sumIC50(normVal.cor ~ concentration, data = data,
+                    minConc = minConc, maxConc = maxConc),
+            error = function(e) NULL
+          )
+          fit_values_cor <- if (is.null(fit_cor)) {
+            setNames(as.list(c(NA_real_, NA_real_)),
+                     c("IC50.cor", "IC50AUC.cor"))
+          } else {
+            setNames(as.list(fit_cor[c("IC50", "AUC")]),
+                     c("IC50.cor", "IC50AUC.cor"))
+          }
+          result <- c(result, fit_values_cor)
+        }
+      }
+
+      tibble::as_tibble(result)
+    }) |>
     dplyr::select(where(~ !all(is.na(.)))) |>
     dplyr::ungroup()
 
-    subData <- subData |>
+    resultData <- screenData |>
       dplyr::left_join(sumTab, by = c("sampleID", "fileName", "drug"))
 
   if (useDSS) {
-    subData <- subData |>
-      dplyr::group_by(sampleID, drug) |>
-      dplyr::mutate(
+      dssTab <- subData |>
+        dplyr::group_by(sampleID, fileName, drug) |>
+        dplyr::group_modify(~ {
         tryCatch({
-          res <- calcDSS(normVal, concentration, dssType = dssType, threshold = dssThreshold)
-          tibble::tibble(
-            DSS1 = if ("DSS1" %in% dss_types) res["DSS1"] else NA_real_,
-            DSS2 = if ("DSS2" %in% dss_types) res["DSS2"] else NA_real_,
-            DSS3 = if ("DSS3" %in% dss_types) res["DSS3"] else NA_real_
+            res <- calcDSS(.x$normVal, .x$concentration,
+                           dssType = dssType, threshold = dssThreshold)
+            if (length(dss_types) == 1) {
+                tibble::tibble(DSS = unname(res[dss_types]))
+            } else {
+              tibble::tibble(
+                DSS1 = if ("DSS1" %in% dss_types) res["DSS1"] else NA_real_,
+                DSS2 = if ("DSS2" %in% dss_types) res["DSS2"] else NA_real_,
+                DSS3 = if ("DSS3" %in% dss_types) res["DSS3"] else NA_real_
+              )
+            }
+          },
+            error = function(e) {
+              if (length(dss_types) == 1) {
+                tibble::tibble(DSS = NA_real_)
+              } else {
+                tibble::tibble(DSS1 = NA_real_, DSS2 = NA_real_, DSS3 = NA_real_)
+              }
+            }
           )
-        },
-          error = function(e) c(DSS1 = NA_real_, DSS2 = NA_real_, DSS3 = NA_real_)
-        )
-      ) |>
-      dplyr::ungroup() |>
-      dplyr::select(where(~ !all(is.na(.))))
+        }) |>
+        dplyr::select(where(~ !all(is.na(.)))) |>
+        dplyr::ungroup()
 
-  }
-
-
-  return(subData)
+      resultData <- resultData |>
+        dplyr::left_join(dssTab, by = c("sampleID", "fileName", "drug"))
+    }
 
 
-  screenData
+    return(resultData)
 }

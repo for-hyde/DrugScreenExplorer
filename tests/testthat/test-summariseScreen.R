@@ -29,7 +29,17 @@ test_that("Summarise screen use trepazoidal AUC value on edge corrected viabilit
 })
 
 test_that("Summarise screen use IC50 fitting", {
-  expect_equal(testSumData_IC50, sumData_IC50)
+  expectedIC50 <- sumData_IC50
+  expectedIC50$IC50AUC <- expectedIC50$AUC
+  expectedIC50$IC50AUC.cor <- expectedIC50$AUC.cor
+  expectedIC50 <- expectedIC50[names(testSumData_IC50)]
+  expect_equal(
+    testSumData_IC50,
+    expectedIC50
+  )
+  expect_false(any(c("UpperLimit", "Slope", "LowerLimit",
+                     "UpperLimit.cor", "Slope.cor", "LowerLimit.cor") %in%
+                   names(testSumData_IC50)))
 })
 
 test_that("Summarize screen use DSS fitting", {

@@ -548,8 +548,7 @@
       # resummarize
       # remove previous values
 
-      rmCols <- c("meanViab.cor", "AUC.cor", "UpperLimit.cor", "IC50.cor",
-                  "Slope.cor", "LowerLimit.cor")
+      rmCols <- c("meanViab.cor", "AUC.cor", "IC50.cor", "IC50AUC.cor")
 
       fitted <- fitted[, !names(fitted) %in% rmCols, drop = FALSE]
 

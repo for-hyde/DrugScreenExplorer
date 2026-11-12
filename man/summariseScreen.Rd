@@ -23,11 +23,10 @@ the method to summarize the drug effects.
  The average method calculates the average drug effect across all concentrations.
  The AUC method calculates the normalized area under the dose-response curve
  using the trapezoidal method.
- The IC50 method first fits a robust four-parameter log-logistic model using
- the dr4pl package. Then, it summarizes the drug effect using the four
- parameters (upper limit, lower limit, slope, and IC50/EC50) and area under
- the sigmoid curve.You can use multiple methods simultaneously by specifying
- a vector of method names.}
+ The IC50 method fits a robust four-parameter log-logistic model using
+ the dr4pl package and returns the IC50/EC50 score and the area under the
+ fitted sigmoid curve. You can use multiple methods simultaneously by
+ specifying a vector of method names.}
 
 \item{minConc, }{lower bound of concentrations for the integration of area
 under curve. Used for method = "IC50". See \code{sumIC50()}.}
@@ -54,12 +53,9 @@ trapezoidal rule.}
 
 If \code{method = 'IC50'}
 
-\item{UpperLimit}{the upper limit of the fitted logistic model}
 \item{IC50}{the half maximal inhibitory concentration (IC50), or the half
 maximal effective concentration (EC50), depends on the type of input data}
-\item{Slope}{the slope of the fitted logistic model}
-\item{lowerLimit}{the upper limit of the fitted logistic model}
-\item{AUC}{the area under the fitted sigmoid doese-response curve}
+\item{IC50AUC}{the area under the fitted sigmoid dose-response curve}
 
 If the logistic model can not be fitted for a certain drug, the above four
 values will be set to NA.
