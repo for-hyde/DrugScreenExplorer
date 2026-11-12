@@ -964,8 +964,12 @@
     })
 
     ##############################################################################
-    ## Third panel: dose-response curves
+    ## 3. Dose-response curves
     ##############################################################################
+
+    ####3.1 Constants and configuration####
+
+    ####3.2 User Inputs####
 
     ## select patient group for subsetting
     output$seleGroupBox <- renderUI({
@@ -1045,6 +1049,8 @@
       }
     })
 
+    ####3.3 Reactive data and calculations####
+
     # data table for dose-response plot
     doseTab <- reactive({
       req(input$nameDrug)
@@ -1120,14 +1126,24 @@
       return(p)
     })
 
+    ####3.4 Event observers and logical controls####
+
+    ####3.5 Outputs and Plots####
+
     output$curvePlot <- renderPlotly({
       ggplotly(doseCurves()) %>%
         config(displayModeBar = FALSE)
     })
 
+    ####3.6 Warnings, notifications, and messages####
+
     ##############################################################################
-    ## Fourth panel: Clustering plot
+    ## 4. Clustering
     ##############################################################################
+
+    ####4.1 Constants and configuration####
+
+    ####4.2 User Inputs####
 
     # select patient group for subsetting
     output$seleGroup1 <- renderUI({
@@ -1198,6 +1214,8 @@
                     textInput("lowerLimit1", "lower limit", value = lower)))
       }
     })
+
+    ####4.3 Reactive data and calculations####
 
     # table for the clustering plot on panel 3
     plotMat <- reactive({
@@ -1302,6 +1320,8 @@
           tabTSNE()$message
     })
 
+    ####4.4 Event observers and logical controls####
+
 # Single reactive expression that handles ALL plot types and returns a ggplot
 plotAll <- eventReactive(input$doPlot, {
   viabData <- filteredData()
@@ -1403,6 +1423,8 @@ plotAll <- eventReactive(input$doPlot, {
   return(g)
 })
 
+    ####4.5 Outputs and Plots####
+
 # Single renderPlotly handles everything smoothly
 output$clusterPlot <- renderPlotly({
   ggplotly(plotAll())
@@ -1429,13 +1451,15 @@ output$clusterPlot <- renderPlotly({
       }
     )
 
+    ####4.6 Warnings, notifications, and messages####
+
     ##############################################################################
-    # Panel 5
+    ## 5. Association test
     ##############################################################################
-    #
-    #   library(ComplexHeatmap)
-    #   library(circlize)
-    #   library(RColorBrewer)
+
+    ####5.1 Constants and configuration####
+
+    ####5.2 User Inputs####
 
     # select patient group for subsetting
     output$seleGroup2 <- renderUI({
@@ -1523,6 +1547,8 @@ output$clusterPlot <- renderPlotly({
         }
       }
     })
+
+    ####5.3 Reactive data and calculations####
 
     # reative object to prepare viability table for testing
     testInput <- reactive({
@@ -1683,6 +1709,10 @@ output$clusterPlot <- renderPlotly({
       })
     })
 
+    ####5.4 Event observers and logical controls####
+
+    ####5.5 Outputs and Plots####
+
     output$errorText <- renderUI({
       req(errorMsg())
       div(style = "color: red;", errorMsg())
@@ -1769,10 +1799,16 @@ output$clusterPlot <- renderPlotly({
               "under the Sample Overview section, then choose sample information to display.")
     )
 
+    ####5.6 Warnings, notifications, and messages####
+
 
     ##############################################################################
-    # Panel 6, summarize two drug combination
+    ## 6. Overview of Two-Drug Combination
     ##############################################################################
+
+    ####6.1 Constants and configuration####
+
+    ####6.2 User Inputs####
 
     output$negDrugBox <- renderUI({
 
@@ -1787,12 +1823,13 @@ output$clusterPlot <- renderPlotly({
                   selected = choice[1])
     })
 
-    output$synMethodBox <- renderUI({
-      radioButtons("synMethod",
-                   "Method for synergy effects",
-                   choices = c("bliss", "bayesynergy"),
-                   selected = "bliss")
-    })
+    # Remove for now due to bayesynergy needing changes.
+    # output$synMethodBox <- renderUI({
+    #   radioButtons("synMethod",
+    #                "Method for synergy effects",
+    #                choices = c("bliss", "bayesynergy"),
+    #                selected = "bliss")
+    # })
 
 
     # select combination index type
@@ -1812,6 +1849,8 @@ output$clusterPlot <- renderPlotly({
                       value = FALSE)
       }
     })
+
+    ####6.3 Reactive data and calculations####
 
     # adapted from summariseScreenCombination, for bayesynergy method
     bayesMethod <- function(screenData, negDrug, ifCor = FALSE) {
@@ -1894,36 +1933,36 @@ output$clusterPlot <- renderPlotly({
 
       req(screenData())
       req(input$negDrug)
-      req(input$synMethod)
 
       tryCatch({
 
         if (ifDrug2()){
 
-          if (input$synMethod == "bayesynergy") {
-            showModal(
-              modalDialog("summarizing ...bayesynergy usually takes longer time",
-                          footer = NULL))
-          } else{
-            showModal(modalDialog("summarizing ...", footer = NULL))
-          }
+          # if (input$synMethod == "bayesynergy") {
+          #   showModal(
+          #     modalDialog("summarizing ...bayesynergy usually takes longer time",
+          #                 footer = NULL))
+          # } else{
 
-          if (input$synMethod == "bliss") {
-            screenData_combine <-
-              summariseScreenCombination(screenData(),
-                                         negDrug = input$negDrug,
-                                         method = "bliss")
-          }
+          # }
+          showModal(modalDialog("summarizing ...", footer = NULL))
 
-          if (input$synMethod == "bayesynergy") {
+          screenData_combine <-
+            summariseScreenCombination(screenData(),
+                                       negDrug = input$negDrug,
+                                       method = "bliss")
 
-            bayesObj <- bayesMethod(screenData(),
-                                    negDrug = input$negDrug,
-                                    ifCor = input$ifCorrected4)
 
-            screenData_combine <- bayesObj$screenData
-            bayesPlot$fit <- bayesObj$fit
-          }
+          # Removed for now
+          # if (input$synMethod == "bayesynergy") {
+
+          #   bayesObj <- bayesMethod(screenData(),
+          #                           negDrug = input$negDrug,
+          #                           ifCor = input$ifCorrected4)
+
+          #   screenData_combine <- bayesObj$screenData
+          #   bayesPlot$fit <- bayesObj$fit
+          # }
 
           removeModal()
         } else {
@@ -1944,33 +1983,31 @@ output$clusterPlot <- renderPlotly({
       req(screenData_combine())
       inCol <- c("drug", "drug2", "concentration", "concentration2")
 
-      if (input$synMethod == "bliss") {
 
-        if (input$CIType == "CI") {
-          if (input$ifCorrected4) {
-            inCol <- c(inCol, c("viab", "viab.cor", "viab2", "viab2.cor", "viabObs",
-                                "viabExp", "CI", "CI.cor"))
-          } else {
-            inCol <- c(inCol, c("viab", "viab2", "viabObs", "viabExp", "CI"))
-          }
-        }
-
-        if (input$CIType == "logCI") {
-
-          if (input$ifCorrected4) {
-            inCol <- c(inCol, c("viab", "viab.cor", "viab2", "viab2.cor", "viabObs",
-                                "viabExp", "logCI", "logCI.cor"))
-
-          } else {
-            inCol <- c(inCol, c("viab", "viab2", "viabObs", "viabExp", "logCI"))
-          }
+      if (input$CIType == "CI") {
+        if (input$ifCorrected4) {
+          inCol <- c(inCol, c("viab", "viab.cor", "viab2", "viab2.cor", "viabObs",
+                              "viabExp", "CI", "CI.cor"))
+        } else {
+          inCol <- c(inCol, c("viab", "viab2", "viabObs", "viabExp", "CI"))
         }
       }
 
-      if ("bayesynergy" %in% input$synMethod) {
-        inCol <- c(inCol, c("synergyScore", "synergyScore.cor", "antagonismScore",
-                            "antagonismScore.cor"))
+      if (input$CIType == "logCI") {
+
+        if (input$ifCorrected4) {
+          inCol <- c(inCol, c("viab", "viab.cor", "viab2", "viab2.cor", "viabObs",
+                              "viabExp", "logCI", "logCI.cor"))
+
+        } else {
+          inCol <- c(inCol, c("viab", "viab2", "viabObs", "viabExp", "logCI"))
+        }
       }
+
+      # if ("bayesynergy" %in% input$synMethod) {
+      #   inCol <- c(inCol, c("synergyScore", "synergyScore.cor", "antagonismScore",
+      #                       "antagonismScore.cor"))
+      # }
 
       inCol <- intersect(inCol, colnames(screenData_combine()))
       inCol <- setdiff(inCol, "fileName")
@@ -1983,6 +2020,10 @@ output$clusterPlot <- renderPlotly({
       return(sumScreenCombine)
     })
 
+    ####6.4 Event observers and logical controls####
+
+    ####6.5 Outputs and Plots####
+
     output$sumCombineTable <- DT::renderDT({
       req(sumCombTab())
       DT::datatable(sumCombTab(),
@@ -1992,9 +2033,15 @@ output$clusterPlot <- renderPlotly({
                     style = "bootstrap")
     })
 
+    ####6.6 Warnings, notifications, and messages####
+
     ##############################################################################
-    # Panel 7, two-drug combination plot
+    ## 7. Drug Combination Effects
     ##############################################################################
+
+    ####7.1 Constants and configuration####
+
+    ####7.2 User Inputs####
 
     seleDrug <- function(input, output, session, screenData_combine, drugB, drugC) {
 
@@ -2035,9 +2082,15 @@ output$clusterPlot <- renderPlotly({
       selectedDrug$drugC <- selectedDosePair()$drugC
     })
 
+    ####7.3 Reactive data and calculations####
 
     # save g1, g2, g3 for pdf saving
     rv <- reactiveValues(g1 = NULL, g2 = NULL, g3 = NULL)
+
+    ####7.4 Event observers and logical controls####
+
+    ####7.5 Outputs and Plots####
+
     # Dose Response Curve plot
     output$doseCurvPlot <- renderPlotly({
 
@@ -2157,7 +2210,6 @@ output$clusterPlot <- renderPlotly({
 
       ggplotly(rv$g3) %>%
         config(displayModeBar = FALSE)
-
     })
 
     # Download PDF functionality
@@ -2259,7 +2311,16 @@ output$clusterPlot <- renderPlotly({
       }
     )
 
-    # Panel 8, Drug ranking
+    ####7.6 Warnings, notifications, and messages####
+
+    ##############################################################################
+    ## 8. Drug Effect Ranking
+    ##############################################################################
+
+    ####8.1 Constants and configuration####
+
+    ####8.2 User Inputs####
+
     output$rankScoreBox <- renderUI({
       req(filteredData())
       scoreCols <- intersect(c("DSS", "DSS1", "DSS2", "DSS3",
@@ -2285,6 +2346,8 @@ output$clusterPlot <- renderPlotly({
       sampleIds <- sort(unique(filteredData()$sampleID))
       selectInput("rankSampleID", "Select sample", choices = sampleIds, selected = sampleIds[1])
     })
+
+    ####8.3 Reactive data and calculations####
 
     rankData <- eventReactive(input$rankPlotButton, {
       req(filteredData(), input$rankScore, input$rankSampleID, input$rankSummary)
@@ -2329,6 +2392,10 @@ output$clusterPlot <- renderPlotly({
         head(as.integer(input$rankTopN))
     })
 
+    ####8.4 Event observers and logical controls####
+
+    ####8.5 Outputs and Plots####
+
     output$rankWaterfall <- renderPlotly({
       req(rankData())
       df <- rankData() %>% mutate(drug = factor(drug, levels = unique(drug)))
@@ -2351,6 +2418,8 @@ output$clusterPlot <- renderPlotly({
         arrange(rank) %>%
         DT::datatable(rownames = FALSE, options = list(pageLength = 25, scrollX = TRUE))
     })
+
+    ####8.6 Warnings, notifications, and messages####
   }
   return(serve)
 }

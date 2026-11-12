@@ -295,12 +295,7 @@ seleDrugUI <- function(id) {
              sidebarLayout(
                sidebarPanel(uiOutput("negDrugBox"),
                             bsTooltip("negDrugBox", "The viability indeed reflects the effects of a single drug, if the drug is combined with the negative drug."),
-                            uiOutput("synMethodBox"),
-                            bsTooltip("synMethodBox", "Specify the method to summarize the synergy or antagonism effects: bliss and bayesynergy."),
-
-                            conditionalPanel(
-                              condition = "input.synMethod == 'bliss'",
-                              uiOutput("CITypeBox")),
+                            uiOutput("CITypeBox"),
                             bsTooltip("CITypeBox", "CI = observed viability - expected viability; \n logCI = log10(observed viability / expected viability)"),
                             uiOutput("ifCorCheck4"),
                             bsTooltip("ifCorCheck4", "Should the combination index be calculated using incubation effect adjusted viability?")
@@ -312,15 +307,11 @@ seleDrugUI <- function(id) {
                             ".shiny-output-error:before { visibility: hidden; }"),
                  DT::DTOutput("sumCombineTable"),
 
-                 conditionalPanel(
-                   condition = "input.synMethod == 'bliss' & input.CIType == 'CI'",
-                   tags$div(style = "margin-top:10px; font-style: italic; color: gray;",
-                            "Note: CI = viabObs - viabExp; viabOb, observed viability; viabExp, expected viability")),
+                 tags$div(style = "margin-top:10px; font-style: italic; color: gray;",
+                          "Note: CI = viabObs - viabExp; viabOb, observed viability; viabExp, expected viability"),
 
-                 conditionalPanel(
-                   condition = "input.synMethod == 'bliss' & input.CIType == 'logCI'",
-                   tags$div(style = "margin-top:10px; font-style: italic; color: gray;",
-                            "Note: logCI = log10(viabObs / viabExp); viabObs, observed viability; viabExp, expected viability")))
+                 tags$div(style = "margin-top:10px; font-style: italic; color: gray;",
+                          "Note: logCI = log10(viabObs / viabExp); viabObs, observed viability; viabExp, expected viability"))
              )),
 
     #----Drug Combination Effects----
@@ -330,62 +321,33 @@ seleDrugUI <- function(id) {
              sidebarLayout(
                sidebarPanel(
 
-                 conditionalPanel(
-                   condition = "input.synMethod == 'bliss'",
-
-                   tags$div(
-                     style = "border: 1px solid #ddd; padding: 10px; margin-bottom: 10px;",
-                     seleDrugUI("doseDrugPair"),
-                     bsTooltip("doseDrugPair", "Two-drug combination"),
-                     selectInput("plotType2",
-                                 "Select plot",
-                                 c("Dose Response Curve", "ScatterPlot: observe VS expected", "Boxplot: CI by concentrations")),
-                     bsTooltip("plotType2", "Results to exhibit")
-                   ),
+                 tags$div(
+                   style = "border: 1px solid #ddd; padding: 10px; margin-bottom: 10px;",
+                   seleDrugUI("doseDrugPair"),
+                   bsTooltip("doseDrugPair", "Two-drug combination"),
+                   selectInput("plotType2",
+                               "Select plot",
+                               c("Dose Response Curve", "ScatterPlot: observe VS expected", "Boxplot: CI by concentrations")),
+                   bsTooltip("plotType2", "Results to exhibit")
+                 ),
 
                    tags$div(
                      style = "border: 1px solid #ddd; padding: 10px; margin-bottom: 10px;",
                      numericInput("figWidth2", label = "Figure width", value = 12),
                      numericInput("figHeight2", label = "Figure height", value = 8),
                      downloadButton("download2", "Download as pdf")
-                   )
-                 ),
-
-                 conditionalPanel(
-
-                   condition = "input.synMethod == 'bayesynergy'",
-
-                   tags$div(
-
-                     style = "border: 1px solid #ddd; padding: 10px; margin-bottom: 10px;",
-                     uiOutput("seleGroup2"),
-                     bsTooltip("seleGroup2", "Choose the sample group(s) to display results for"),
-                     uiOutput("selePlotType3"),
-                     bsTooltip("selePlotType3", "Select the type of plot you want to generate")
-                   ),
-
-                   tags$div(
-                     style = "border: 1px solid #ddd; padding: 10px; margin-bottom: 10px;",
-                     numericInput("figWidth3", label = "Figure width", value = 12),
-                     numericInput("figHeight3", label = "Figure height", value = 8),
-                     downloadButton("download3", "Download as pdf")
-                   )
-                 )),
+                   )),
 
 
                mainPanel(
-                 conditionalPanel(condition = "input.plotType2 == 'Dose Response Curve' && input.synMethod == 'bliss'",
+                 conditionalPanel(condition = "input.plotType2 == 'Dose Response Curve'",
                                   plotlyOutput("doseCurvPlot", width = 1000, height = 800)),
 
-                 conditionalPanel(condition = "input.plotType2 == 'ScatterPlot: observe VS expected' && input.synMethod == 'bliss'",
+                 conditionalPanel(condition = "input.plotType2 == 'ScatterPlot: observe VS expected'",
                                   plotlyOutput("scatterPlot", width = 1000, height = 800)),
 
-                 conditionalPanel(condition = "input.plotType2 == 'Boxplot: CI by concentrations' && input.synMethod == 'bliss'",
-                                  plotlyOutput("ciBoxplot", width = 1000, height = 800)),
-
-                 conditionalPanel(condition = "input.synMethod == 'bayesynergy'",
-                                  plotOutput("bayesPlotPanel", width = 1000, height = 800)),
-
+                 conditionalPanel(condition = "input.plotType2 == 'Boxplot: CI by concentrations'",
+                                  plotlyOutput("ciBoxplot", width = 1000, height = 800))
                )
              )),
     #----Drug Effect Ranking----
