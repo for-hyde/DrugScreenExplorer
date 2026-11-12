@@ -119,8 +119,3 @@ plotPlate <- function(screenData,
     makepdf(plotList, pdfName, ncol, nrow, width, height)
   }
 }
-
-
-
-
-

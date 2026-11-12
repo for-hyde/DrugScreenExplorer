@@ -52,7 +52,7 @@ fitEdgeEffect <- function(screenData,
   checkmate::assert_choice(method, choices = c("loess", "sigmoid"),
                            .var.name = "method")
   checkmate::assert_logical(useNeg, len = 1, .var.name = "useNeg")
-  checkmate::assert_integerish(useLowConcentrations, len = 1,
+  checkmate::assert_numeric(useLowConcentrations, len = 1,
                               lower = 0, .var.name = "useLowConcentrations")
   checkmate::assert_numeric(span, len = 1, lower = 0, .var.name = "span")
 
