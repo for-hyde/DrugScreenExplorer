@@ -578,29 +578,49 @@ parseAutomatic <- function(fileList, decimark, wellDims) {
   screenData <- lapply(fileList, function(eachFile){
     #read in raw lines
     raw_lines <- readLines(eachFile, warn = FALSE)
-    #Search for potential start of plate grid (A + delimiter)
-    start_idx <- grep("^(,)?A(,|\\t|;)", raw_lines)
+    # Search for a row labelled A. This supports unquoted exports such as
+    # A;value;value and quoted exports such as "34","A",value,value.
+    start_idx <- grep("(^|[,;\t])\"?A\"?([,;\t]|$)", raw_lines)
     if (length(start_idx) == 0){
       stop(paste0("Could not Automatically locate the start of the plate grid\n
       Check file formatting or use manual parsing with rowRange and colRange specified."))
     }
-    #Using target line, determine delimiter, extract plate
+    # Use the first candidate line to determine the delimiter and row-label
+    # position. Fields before the row label are export metadata.
     target_line <- raw_lines[start_idx[1]]
-    delim <- if (grepl("\\t", target_line)) "\t" else if (grepl(";", target_line)) ";" else ","
-    
-    #Set header as row directly above A
-    header_idx <- start_idx[1]
-    
-    #Determine plate by wellDims, extract text block, read as matrix, convert to data frame
+    delimiters <- c(",", "\t", ";")
+    delim <- delimiters[which.max(
+      vapply(delimiters, function(x) {
+        length(strsplit(target_line, x, fixed = TRUE)[[1]])
+      }, integer(1))
+    )]
+    target_fields <- trimws(gsub('^"|"$', "",
+                                 strsplit(target_line, delim, fixed = TRUE)[[1]]))
+    row_label_idx <- match("A", target_fields)
+    if (is.na(row_label_idx)) {
+      stop("Could not identify the row-label column in the plate grid.")
+    }
+
+    # Extract the expected number of plate rows and retain measurement columns.
     cols <- wellDims[2]
     rows <- wellDims[1]
-    end_idx <- header_idx + rows
-    isolated_lines <- raw_lines[header_idx:end_idx]
-    raw_matrix <- do.call(rbind, strsplit(isolated_lines, delim))
-    
-    plate_df <- as.data.frame(raw_matrix, stringsAsFactors = FALSE)
-    #Remove first column
-    plate_df <- plate_df[, -1]
+    end_idx <- start_idx[1] + rows - 1
+    if (end_idx > length(raw_lines)) {
+      stop("The detected plate grid does not contain the expected number of rows.")
+    }
+    isolated_lines <- raw_lines[start_idx[1]:end_idx]
+    raw_matrix <- do.call(rbind, lapply(isolated_lines, function(line) {
+      fields <- trimws(gsub('^"|"$', "",
+                             strsplit(line, delim, fixed = TRUE)[[1]]))
+      values <- fields[(row_label_idx + 1):length(fields)]
+      if (length(values) < cols) {
+        stop("The detected plate grid does not contain the expected number of columns.")
+      }
+      values[seq_len(cols)]
+    }))
+
+    plate_df <- as.data.frame(raw_matrix, stringsAsFactors = FALSE,
+                              check.names = FALSE)
     #Add fileName
     plate_df <- dplyr::mutate(
       plate_df, 
