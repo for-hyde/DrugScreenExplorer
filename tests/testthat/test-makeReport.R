@@ -12,7 +12,7 @@ makeReport(
   dir = test_output_dir,
   title = "Test Report",
   author = "F Hyde",
-  reportDate = date("2026-01-01")
+  reportDate = as.Date("2026-01-01")
 )
 
 # Input validations working

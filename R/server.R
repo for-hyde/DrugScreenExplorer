@@ -594,9 +594,11 @@
         hideTab(inputId = "tabs", target = "Drug Effect Ranking")
         showTab(inputId = "tabs", target = "Plate plot")
         showTab(inputId = "tabs", target = "Overview of Two-Drug Combination")
+        showTab(inputId = "tabs", target = "Combination hypothesis test")
         showTab(inputId = "tabs", target = "Drug Combination Effects")
       } else {
         hideTab(inputId = "tabs", target = "Overview of Two-Drug Combination")
+        hideTab(inputId = "tabs", target = "Combination hypothesis test")
         hideTab(inputId = "tabs", target = "Drug Combination Effects")
         showTab(inputId = "tabs", target = "Dose-response curves")
         showTab(inputId = "tabs", target = "Plate plot")
@@ -2021,6 +2023,207 @@ output$clusterPlot <- renderPlotly({
 
     ####6.4 Event observers and logical controls####
 
+    output$combHypothesisControls <- renderUI({
+      req(screenData_combine())
+
+      availableMetrics <- c(
+        "CI" = "CI",
+        "logCI" = "logCI",
+        "Corrected CI" = "CI.cor",
+        "Corrected logCI" = "logCI.cor"
+      )
+      availableMetrics <- availableMetrics[
+        unname(availableMetrics) %in% colnames(screenData_combine())
+      ]
+
+      combinationChoices <- screenData_combine() %>%
+        dplyr::distinct(drug, drug2) %>%
+        dplyr::mutate(combination = paste(drug, drug2, sep = " + ")) %>%
+        dplyr::arrange(combination)
+
+      metadataChoices <- intersect(
+        if (is.null(input$sampleAnnotations)) character(0) else input$sampleAnnotations,
+        colnames(screenData_combine())
+      )
+
+      doseChoices <- screenData_combine() %>%
+        dplyr::distinct(concentration, concentration2) %>%
+        dplyr::mutate(
+          doseKey = paste(concentration, concentration2, sep = "\r"),
+          doseLabel = paste0("Drug 1: ", concentration,
+                             "; Drug 2: ", concentration2)
+        ) %>%
+        dplyr::arrange(concentration, concentration2)
+
+      if (length(availableMetrics) == 0 ||
+          nrow(combinationChoices) == 0 ||
+          length(metadataChoices) == 0) {
+        return(tags$p(
+          "A CI column, one drug combination, and at least one metadata column are required."
+        ))
+      }
+
+      tagList(
+        selectInput(
+          "combHypothesisMetric",
+          "CI metric",
+          choices = availableMetrics,
+          selected = unname(availableMetrics)[1]
+        ),
+        selectInput(
+          "combHypothesisTest",
+          "Statistical test",
+          choices = c(
+            "Welch two-sample t-test" = "t",
+            "Wilcoxon rank-sum test" = "wilcox"
+          ),
+          selected = "t"
+        ),
+        selectInput(
+          "combHypothesisCombination",
+          "Drug combination",
+          choices = stats::setNames(
+            combinationChoices$combination,
+            combinationChoices$combination
+          ),
+          selected = combinationChoices$combination[1],
+          multiple = FALSE,
+          selectize = TRUE
+        ),
+        selectInput(
+          "combHypothesisMetadata",
+          "Metadata variable",
+          choices = metadataChoices,
+          selected = metadataChoices[1]
+        ),
+        uiOutput("combHypothesisGroups"),
+        selectInput(
+          "combHypothesisDose",
+          "Concentration pair",
+          choices = c(
+            "All concentration pairs" = "all",
+            stats::setNames(doseChoices$doseKey, doseChoices$doseLabel)
+          ),
+          selected = "all"
+        ),
+        tags$p(
+          "Tests compare CI distributions between metadata groups within the selected drug combination. ",
+          "P-values are adjusted using Benjamini-Hochberg correction."
+        )
+      )
+    })
+
+    output$combHypothesisGroups <- renderUI({
+      req(screenData_combine(), input$combHypothesisMetadata)
+
+      metadataValues <- screenData_combine() %>%
+        dplyr::pull(.data[[input$combHypothesisMetadata]]) %>%
+        as.character() %>%
+        unique() %>%
+        sort()
+
+      selectInput(
+        "combHypothesisGroups",
+        "Metadata groups to compare",
+        choices = metadataValues,
+        selected = metadataValues,
+        multiple = TRUE,
+        selectize = TRUE
+      )
+    })
+
+    combHypothesisError <- reactiveVal(NULL)
+
+    combHypothesisData <- reactive({
+      req(screenData_combine(), input$combHypothesisMetric,
+          input$combHypothesisCombination, input$combHypothesisMetadata,
+          input$combHypothesisGroups, input$combHypothesisDose)
+
+      metric <- input$combHypothesisMetric
+      metadata <- input$combHypothesisMetadata
+      data <- screenData_combine() %>%
+        dplyr::mutate(
+          combination = paste(drug, drug2, sep = " + "),
+          doseKey = paste(concentration, concentration2, sep = "\r"),
+          value = .data[[metric]],
+          groupValue = as.character(.data[[metadata]])
+        ) %>%
+        dplyr::filter(
+          combination == input$combHypothesisCombination,
+          groupValue %in% input$combHypothesisGroups,
+          input$combHypothesisDose == "all" |
+            doseKey == input$combHypothesisDose,
+          !is.na(groupValue),
+          is.finite(value)
+        ) %>%
+        dplyr::group_by(sampleID, groupValue) %>%
+        dplyr::summarise(
+          value = mean(value),
+          .groups = "drop"
+        ) %>%
+        dplyr::mutate(combination = input$combHypothesisCombination)
+
+      if (nrow(data) == 0) {
+        stop("No finite CI values are available for the selected combination, metadata groups, and concentration.")
+      }
+
+      data
+    })
+
+    combHypothesisResults <- reactive({
+      combHypothesisError(NULL)
+
+      tryCatch({
+        data <- combHypothesisData()
+        groups <- sort(unique(data$groupValue))
+
+        if (length(groups) < 2) {
+          stop("Select at least two metadata groups to compare.")
+        }
+
+        groupCounts <- table(data$groupValue)
+        if (any(groupCounts < 2)) {
+          stop("Each selected metadata group needs at least two sample-level CI values.")
+        }
+
+        comparisons <- utils::combn(groups, 2, simplify = FALSE)
+        results <- purrr::map_dfr(comparisons, function(pair) {
+          first <- data$value[data$groupValue == pair[1]]
+          second <- data$value[data$groupValue == pair[2]]
+
+          test <- if (input$combHypothesisTest == "t") {
+            stats::t.test(first, second, var.equal = FALSE)
+          } else {
+            stats::wilcox.test(first, second, exact = FALSE)
+          }
+
+          estimate <- if (input$combHypothesisTest == "t") {
+            mean(first) - mean(second)
+          } else {
+            median(first) - median(second)
+          }
+
+          tibble::tibble(
+            group1 = pair[1],
+            group2 = pair[2],
+            n1 = length(first),
+            n2 = length(second),
+            estimate_difference = estimate,
+            p.value = test$p.value
+          )
+        })
+
+        results %>%
+          dplyr::mutate(
+            adjusted.p = p.adjust(p.value, method = "BH")
+          ) %>%
+          dplyr::arrange(p.value)
+      }, error = function(e) {
+        combHypothesisError(conditionMessage(e))
+        tibble::tibble()
+      })
+    })
+
     ####6.5 Outputs and Plots####
 
     output$sumCombineTable <- DT::renderDT({
@@ -2030,6 +2233,58 @@ output$clusterPlot <- renderPlotly({
                     rownames = FALSE,
                     selection = 'none',
                     style = "bootstrap")
+    })
+
+    output$combHypothesisError <- renderUI({
+      if (!is.null(combHypothesisError())) {
+        div(style = "color: red;", combHypothesisError())
+      }
+    })
+
+    output$combHypothesisResults <- DT::renderDT({
+      results <- combHypothesisResults()
+      if (nrow(results) == 0) {
+        return(NULL)
+      }
+
+      results %>%
+        dplyr::mutate(
+          dplyr::across(
+            c(estimate_difference, p.value, adjusted.p),
+            ~ formatC(.x, digits = 3, format = "e")
+          )
+        ) %>%
+        DT::datatable(
+          rownames = FALSE,
+          options = list(pageLength = 10, scrollX = TRUE)
+        )
+    })
+
+    output$combHypothesisPlot <- renderPlotly({
+      data <- tryCatch(combHypothesisData(), error = function(e) NULL)
+      if (is.null(data) || nrow(data) == 0) {
+        return(NULL)
+      }
+
+      p <- ggplot2::ggplot(
+        data,
+        ggplot2::aes(x = groupValue, y = value, fill = groupValue)
+      ) +
+        ggplot2::geom_boxplot(outlier.shape = NA, alpha = 0.5) +
+        ggplot2::geom_jitter(width = 0.15, alpha = 0.7) +
+        ggplot2::labs(
+          x = input$combHypothesisMetadata,
+          y = input$combHypothesisMetric,
+          title = paste("Combination index by", input$combHypothesisMetadata),
+          subtitle = input$combHypothesisCombination
+        ) +
+        ggplot2::theme_bw() +
+        ggplot2::theme(
+          legend.position = "none",
+          axis.text.x = ggplot2::element_text(angle = 35, hjust = 1)
+        )
+
+      plotly::ggplotly(p)
     })
 
     ####6.6 Warnings, notifications, and messages####
@@ -2046,16 +2301,32 @@ output$clusterPlot <- renderPlotly({
 
       ns <- session$ns
       output$seleBaseDrugBox <- renderUI({
-        baseDrug <- ifelse(is.null(drugB()),
-                           unique(screenData_combine$drug)[1], drugB())
+        req(is.data.frame(screenData_combine),
+            "drug" %in% names(screenData_combine))
+        selectedDrug <- drugB()
+        baseDrug <- if (length(selectedDrug) == 1 &&
+                        !is.na(selectedDrug) &&
+                        selectedDrug %in% unique(screenData_combine$drug)) {
+          selectedDrug
+        } else {
+          unique(screenData_combine$drug)[1]
+        }
         selectInput(ns("seleBaseDrug"), "Base Drug",
                     unique(screenData_combine$drug),
                     selected = baseDrug)
       })
 
       output$seleCombiDrugBox <- renderUI({
-        combiDrug <- ifelse(is.null(drugC()),
-                            unique(screenData_combine$drug2)[1], drugC())
+        req(is.data.frame(screenData_combine),
+            "drug2" %in% names(screenData_combine))
+        selectedDrug <- drugC()
+        combiDrug <- if (length(selectedDrug) == 1 &&
+                         !is.na(selectedDrug) &&
+                         selectedDrug %in% unique(screenData_combine$drug2)) {
+          selectedDrug
+        } else {
+          unique(screenData_combine$drug2)[1]
+        }
         selectInput(ns("seleCombiDrug"), "Combined Drug",
                     unique(screenData_combine$drug2),
                     selected = combiDrug)
@@ -2093,6 +2364,8 @@ output$clusterPlot <- renderPlotly({
     # Dose Response Curve plot
     output$doseCurvPlot <- renderPlotly({
 
+      req(screenData_combine(), length(selectedDrug$drugB) == 1,
+          length(selectedDrug$drugC) == 1)
       drugB <- selectedDrug$drugB
       drugC <- selectedDrug$drugC
 
@@ -2150,6 +2423,8 @@ output$clusterPlot <- renderPlotly({
     # Scatter Plot
     output$scatterPlot <- renderPlotly({
 
+      req(screenData_combine(), length(selectedDrug$drugB) == 1,
+          length(selectedDrug$drugC) == 1)
       drugB <- selectedDrug$drugB
       drugC <- selectedDrug$drugC
 
@@ -2186,6 +2461,8 @@ output$clusterPlot <- renderPlotly({
     # Box Plot
     output$ciBoxplot <- renderPlotly({
 
+      req(screenData_combine(), length(selectedDrug$drugB) == 1,
+          length(selectedDrug$drugC) == 1)
       drugB <- selectedDrug$drugB
       drugC <- selectedDrug$drugC
 

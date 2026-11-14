@@ -314,6 +314,20 @@ seleDrugUI <- function(id) {
                           "Note: logCI = log10(viabObs / viabExp); viabObs, observed viability; viabExp, expected viability"))
              )),
 
+    #----Combination Hypothesis Test----
+    tabPanel("Combination hypothesis test",
+                          titlePanel("Compare combination index values between metadata groups"),
+                          sidebarLayout(
+                            sidebarPanel(
+                              uiOutput("combHypothesisControls")
+                            ),
+                            mainPanel(
+                              uiOutput("combHypothesisError"),
+                              DT::DTOutput("combHypothesisResults"),
+                              plotlyOutput("combHypothesisPlot", width = 800, height = 600)
+                            )
+                          )),
+
     #----Drug Combination Effects----
     tabPanel("Drug Combination Effects",
              titlePanel("Combination Effects"),
