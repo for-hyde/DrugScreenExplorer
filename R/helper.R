@@ -188,6 +188,37 @@ fitOneLoess <- function(plateData,
                          plateData$wellID %in% lowConcWell, ]
   }
 
+  fitIn <- fitIn[
+    is.finite(fitIn$normVal) &
+      is.finite(fitIn$numRowID) &
+      is.finite(fitIn$numColID),
+    ,
+    drop = FALSE
+  ]
+
+  # A two-dimensional surface cannot be estimated from controls confined to
+  # one row or column. Use finite non-positive-control wells as a fallback.
+  if (nrow(fitIn) < 4 ||
+      length(unique(fitIn$numRowID)) < 2 ||
+      length(unique(fitIn$numColID)) < 2) {
+    fallback <- plateData[plateData$wellType != "pos", ,
+                          drop = FALSE]
+    fallback <- fallback[
+      is.finite(fallback$normVal) &
+        is.finite(fallback$numRowID) &
+        is.finite(fallback$numColID),
+      ,
+      drop = FALSE
+    ]
+    if (nrow(fallback) >= 4 &&
+        length(unique(fallback$numRowID)) >= 2 &&
+        length(unique(fallback$numColID)) >= 2) {
+      fitIn <- fallback
+    } else {
+      stop("Insufficient finite measurements spanning both plate dimensions for edge-effect estimation.")
+    }
+  }
+
   # fit the surface using loess model
   lo <- loess(normVal ~ numRowID + numColID, data = fitIn,
               control = loess.control(surface = "direct"), span = span)

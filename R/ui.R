@@ -49,6 +49,7 @@ seleDrugUI <- function(id) {
 
                    # Add a checkbox for manual range selection
                    checkboxInput("showOptions", "Manual Range Selection", value = FALSE),
+                   uiOutput("allowNACheckBox"),
                    conditionalPanel(
                      condition = "input.showOptions == true",
                      wellPanel(
@@ -179,9 +180,7 @@ seleDrugUI <- function(id) {
                  # uiOutput("ifCorCheck"))
                ),
   #----Main Panel----#
-               mainPanel(tags$style(type="text/css",
-                                    ".shiny-output-error { visibility: hidden; }",
-                                    ".shiny-output-error:before { visibility: hidden; }"),
+               mainPanel(
                          #Edge Effect estimation visualization
                          plotlyOutput("edgeEffectPlot", width = 800, height = 400),
                          #Plate heatmap visualization

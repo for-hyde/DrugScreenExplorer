@@ -317,7 +317,8 @@
                                        negWell = c(),
                                        posWell = c(),
                                        allowNA = isTRUE(input$allowNA),
-                                       normalization = FALSE)
+                                       normalization = FALSE) |>
+                              drop_na(value) #Drop any rows with NA values in the 'value' column
         }, error = function(e) {
           warning(
             "readScreen failed:" ,
@@ -617,8 +618,13 @@
     filteredData <- reactive({
       req(infoTableRaw())
       selRows <- input$sampleInfo_rows_all
-      selectedPlates <- as.character(infoTableRaw()[selRows, ] %>%
-                                       pull(fileName))
+      if (is.null(selRows) || length(selRows) == 0) {
+        selectedPlates <- infoTableRaw() %>%
+          dplyr::pull(fileName)
+      } else {
+        selectedPlates <- as.character(infoTableRaw()[selRows, ] %>%
+                                         dplyr::pull(fileName))
+      }
       dataNew <- filter(screenData(), fileName %in% selectedPlates)
       dataNew
     })
@@ -637,8 +643,9 @@
     # sample selection
     output$sampleSeleBox <- renderUI({
 
-      req(input$selePatient)
-      if (all(c("patientID", "sampleID") %in% colnames(filteredData()))) {
+      if ("patientID" %in% colnames(filteredData()) &&
+          "sampleID" %in% colnames(filteredData())) {
+        req(input$selePatient)
         sampleIDs <- unique(filter(filteredData(),
                                    patientID == input$selePatient)$sampleID)
       } else if ("sampleID" %in% colnames(filteredData())) {
@@ -658,8 +665,8 @@
     # plate selection
     output$plateSeleBox <- renderUI({
 
-      req(input$seleSample)
-      if ("sampleID" %in% colnames(filteredData())) {
+      if ("sampleID" %in% colnames(filteredData()) &&
+          !is.null(input$seleSample)) {
         plateIDs <- unique(filter(filteredData(),
                                   sampleID == input$seleSample)$fileName)
       } else {
@@ -715,7 +722,7 @@
 
     plotTab <- reactive({
 
-      req(input$selePlate) #requires plate to be selected
+      req(input$selePlate, input$ifNorm) #requires plate and value type
       ## Function to generate an ordered row IDs based on the number of rows
       genRowIDs <- function(x) {
         c(paste0(LETTERS, 0),
@@ -735,6 +742,7 @@
       matPlate <- filter(filteredData(), fileName == input$selePlate) %>%
         mutate(rowID = factor(rowID, levels = rev(rowSeq))) %>%
         mutate(colID = factor(colID, levels = colSeq))
+      req(nrow(matPlate) > 0)
 
       if (input$ifNorm == "viability") {
         matPlate <- mutate(matPlate, val = normVal)
@@ -745,6 +753,8 @@
       } else if (input$ifNorm == "z-score") {
         matPlate <- mutate(matPlate, val = (value - mean(value)) / sd(value))
       }
+
+      req("val" %in% names(matPlate), nrow(matPlate) > 0)
 
       if (!is.null(input$ifCensor) && input$ifCensor) {
         matPlate <-
@@ -794,8 +804,9 @@
     # plot the heatmap
     output$plateHeatmap <- renderPlotly({
 
-      req(input$selePlate)
-      p <- ggplot(plotTab(),
+      data <- plotTab()
+      req(nrow(data) > 0, "val" %in% names(data))
+      p <- ggplot(data,
                   aes(x = colID, y = rowID, fill = val)) +
         geom_tile(color = "gray", size = 3) +
         scale_fill_viridis_c() +
@@ -830,15 +841,17 @@
                                      name = input$ifNorm)
       }
 
-      ggplotly(p, source = "A") %>%
-        event_register("plotly_click") %>%
-        config(displayModeBar = FALSE)
+      plot <- ggplotly(p, source = "A")
+      plot <- plotly::event_register(plot, "plotly_click")
+      plotly::config(plot, displayModeBar = FALSE)
     })
 
     ## a table for selected plate and well information
     output$infoTab <- DT::renderDT({
 
-      s <- event_data("plotly_click", source = "A")
+      s <- input$plateHeatmap_click
+      req(!is.null(s), !is.null(s$x), !is.null(s$y),
+          length(s$x) > 0, length(s$y) > 0)
       # Add potential interesting columns that may or may not exist
 
       addCol <- intersect(c("drug", "drug2", "wellType", "concentration",
@@ -865,7 +878,9 @@
       if (any(!c("drug", "concentration") %in% colnames(plotTab()))) {
         NULL
       } else {
-        s <- event_data("plotly_click", source = "A")
+        s <- input$plateHeatmap_click
+        req(!is.null(s), !is.null(s$x), !is.null(s$y),
+            length(s$x) > 0, length(s$y) > 0)
         drugName <- unique(filter(plotTab(),
                                   rowID == levels(plotTab()$rowID)[s$y],
                                   colID == levels(plotTab()$colID)[s$x])$drug)
@@ -889,7 +904,9 @@
 
       } else {
 
-        s <- event_data("plotly_click", source = "A")
+        s <- input$plateHeatmap_click
+        req(!is.null(s), !is.null(s$x), !is.null(s$y),
+            length(s$x) > 0, length(s$y) > 0)
 
         if (!ifDrug2()) {
           drugName <- unique(filter(plotTab(),
